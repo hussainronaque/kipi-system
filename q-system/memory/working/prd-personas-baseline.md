@@ -2,6 +2,23 @@
 
 **Purpose:** Record the rate of vague-goal-class and empty-non-goals-class findings across recent PRDs that did NOT run the planning-personas session. This baseline is the comparison point for the Phase 0 (template-only) and v0 (command-based) experiments described in `.prd-os/prds/prd-planning-personas-2026-05-13.md`.
 
+## Propagation contract
+
+This file is **instance-local**. Despite living under `q-system/memory/working/`, it is NOT propagated by `kipi update`. The exclusion lives in `kipi-update.sh` line 110:
+
+```
+rsync -a --delete \
+    --exclude="my-project/" \
+    --exclude="canonical/" \
+    --exclude="memory/" \         # this line excludes q-system/memory/
+    --exclude="output/" \
+    --exclude=".q-system/agent-pipeline/bus/"
+```
+
+Three q-system directories are excluded from propagation: `memory/`, `output/`, and `my-project/`. Each instance maintains its own copy of files under these paths. Appending measurement rows to this file (via `plugins/prd-os/scripts/phase0_measure.py`) is therefore durable per-instance; `kipi update` will not overwrite them.
+
+If the exclusion is ever removed from `kipi-update.sh`, the regression test at `plugins/prd-os/tests/test_propagation.py` will fail. That test is the binding contract; this section is explanation.
+
 ## Classification rules
 
 A Codex finding counts as **vague-goal-class** if its `body` text (case-insensitive) contains any of: `vague`, `not measurable`, `unclear what success`, `no metric`, `operationalized`, `outcome-focused`, `implementation-focused`, `problem clarity`.

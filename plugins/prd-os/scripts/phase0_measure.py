@@ -33,6 +33,12 @@ CLI:
       Emits JSON verdict to stdout. Appends one row to baseline.md.
 
 Exit code: always 0 (measurement, not a gate).
+
+Propagation: the baseline.md append target is instance-local. `kipi-update.sh`
+excludes `memory/` from the rsync that propagates `q-system/` to instances,
+so appended rows survive `kipi update`. See the Propagation contract section
+in `q-system/memory/working/prd-personas-baseline.md` for the full contract.
+The regression test at `plugins/prd-os/tests/test_propagation.py` binds it.
 """
 
 from __future__ import annotations
