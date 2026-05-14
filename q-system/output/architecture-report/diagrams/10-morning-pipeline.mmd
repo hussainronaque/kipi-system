@@ -1,0 +1,30 @@
+flowchart TB
+    Start[Founder runs /q-morning<br/>or auto-fires on day start] --> P0
+
+    P0[Phase 0 - Preflight<br/>preflight agent claude-haiku-4-5]
+    P1[Phase 1 - Ingest<br/>gmail-pull calendar-pull crm-pull<br/>notion-pull copy-diff]
+    P2[Phase 2 - Enrich<br/>meeting-prep warm-intro-match<br/>x-activity]
+    P3[Phase 3 - Content Intel<br/>content-intel linkedin-dms]
+    P4[Phase 4 - Brand<br/>founder-brand-post post-visuals]
+    P5[Phase 5 - Pipeline<br/>pipeline-followup engagement-hitlist<br/>lead-sourcing loop-review]
+    P6[Phase 6 - Deliverables<br/>client-deliverables]
+    P7[Phase 7 - Synthesize<br/>synthesizer agent opus-4-6 effort:max<br/>writes daily schedule HTML]
+    P8[Phase 8 - Verify<br/>visual-verify]
+    P9[Phase 9 - Push<br/>notion-push crm-push]
+
+    Start --> P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7 --> P8 --> P9
+    P9 --> Done[Daily schedule HTML<br/>+ all signals logged]
+
+    Bus[(agent-pipeline/bus/*.json<br/>35 schemas in schemas/)]
+    P1 -.writes.-> Bus
+    P2 -.writes.-> Bus
+    P3 -.writes.-> Bus
+    P4 -.writes.-> Bus
+    P5 -.writes.-> Bus
+    P6 -.writes.-> Bus
+    P7 -.reads all.-> Bus
+
+    classDef phase fill:#dbeafe,stroke:#1e40af
+    classDef bus fill:#fef3c7,stroke:#92400e
+    class P0,P1,P2,P3,P4,P5,P6,P7,P8,P9 phase
+    class Bus bus

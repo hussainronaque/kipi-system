@@ -1,0 +1,29 @@
+sequenceDiagram
+    autonumber
+    participant F as Founder
+    participant CC as Claude Code
+    participant M as kipi-mcp server.py
+    participant H as Harness module<br/>(linter, scorer, etc)
+    participant FS as Filesystem<br/>(canonical, bus, db)
+
+    F->>CC: "lint this draft for voice"
+    CC->>M: kipi_voice_lint(text)
+    M->>H: linter.voice_lint(text)
+    H->>H: regex match banned phrases
+    H->>H: check sentence length variance
+    H->>H: detect emdashes
+    H->>FS: read voice-dna reference
+    H-->>M: VoiceLintResult(passed=False, violations=[...])
+    M-->>CC: JSON result with pass/fail + violations
+    CC->>F: shows specific violations + line numbers
+
+    Note over H: Pure Python.<br/>No LLM in the loop<br/>for the validation step.
+
+    F->>CC: "score this lead"
+    CC->>M: kipi_score_lead(attrs, signals)
+    M->>H: scorer.score_lead(...)
+    H->>FS: read scoring weights from registry
+    H->>H: deterministic math
+    H-->>M: {score: 78, tier: "hot", reasons: [...]}
+    M-->>CC: JSON result
+    CC->>F: "Score: 78 (hot). Top reasons: ..."

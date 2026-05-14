@@ -35,6 +35,27 @@ findings_path: .prd-os/findings/{{prd_id}}-findings.jsonl
 
 - 
 
+<!--
+## Persona Review (optional, fill in before /prd-review)
+
+Phase 0 of the prd-os planning-personas experiment (PRD prd-planning-personas-2026-05-13).
+For non-trivial PRDs, answer the three Skeptic questions below before invoking /prd-review.
+Brief answers are fine. The goal is to force one round of adversarial thinking before Codex.
+
+### Skeptic
+
+Q1: What is the strongest argument against doing this?
+A1:
+
+Q2: What is the smallest experiment that would disprove the thesis?
+A2:
+
+Q3: What is the cheapest non-build alternative?
+A3:
+
+When done with these questions, uncomment this section and move it to live just before `## Issues` below.
+-->
+
 ## Issues
 
 <!--

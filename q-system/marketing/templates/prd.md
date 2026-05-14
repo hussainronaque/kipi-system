@@ -139,6 +139,25 @@ A PRD is not done when the changes are implemented. Done = every artifact is dis
 
 ---
 
+<!--
+## Persona Review (optional, paste into PRD body just before `## Issues`)
+
+For non-trivial PRDs, uncomment and answer the three Skeptic questions in the PRD body before invoking `/prd-review`. Brief answers are fine. The goal is one round of adversarial thinking before Codex.
+
+### Skeptic
+
+Q1: What is the strongest argument against doing this?
+A1:
+
+Q2: What is the smallest experiment that would disprove the thesis?
+A2:
+
+Q3: What is the cheapest non-build alternative?
+A3:
+
+This template scaffold is part of Phase 0 of the `prd-planning-personas-2026-05-13` PRD. The Phase 0 measurement rules and kill criterion live in the PRD itself, not in this reusable template.
+-->
+
 ## Template Usage Rules
 
 - One PRD per logical change set. Don't combine unrelated work.

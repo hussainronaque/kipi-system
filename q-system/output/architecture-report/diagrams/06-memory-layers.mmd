@@ -1,0 +1,65 @@
+flowchart TB
+    subgraph GLOBAL["Global Memory - loaded every session"]
+        UM[user CLAUDE.md<br/>preferences, role, voice]
+        AM[auto-memory MEMORY.md index<br/>+ individual memory files]
+    end
+
+    subgraph PROJECT["Project Memory - loaded per project"]
+        PCM[project CLAUDE.md]
+        QC[q-system/CLAUDE.md]
+        RULES[.claude/rules/*.md<br/>19 rules, conditional auto-load]
+    end
+
+    subgraph CANONICAL["Canonical Layer - structured durable knowledge"]
+        TT[talk-tracks.md]
+        VS[verticals.md]
+        DC[discovery.md]
+        DEC[decisions.md]
+        OBJ[objections.md]
+        MK[market-intelligence.md]
+        CI[content-intelligence.md]
+        LR[lead-lifecycle-rules.md]
+        PR[pricing-framework.md]
+        EP[engagement-playbook.md]
+        CL[changelog.md]
+    end
+
+    subgraph WORKING["Working Memory - ephemeral per session/day"]
+        BUS[bus/*.json<br/>agent pipeline payloads]
+        LOG[output/morning-log-YYYY-MM-DD.json]
+        HO[memory/last-handoff.md]
+        LOOPS[loops registry<br/>open follow-ups]
+    end
+
+    subgraph BRIDGE["Cross-Instance Memory"]
+        BR1[~/.ktlyst/bridge/canonical-digest.json]
+        BR2[~/.ktlyst/bridge/product_state.json]
+        BR3[~/.ktlyst/bridge/legal-flags.json]
+        BR4[~/.ktlyst/bridge/website-state.json]
+        BR5[~/.ktlyst/bridge/market_signal.json]
+    end
+
+    subgraph DB["Append-Only Database"]
+        SQL[(SQLite metrics_store<br/>content_metrics<br/>behavioral_signals<br/>outreach<br/>copy_edits)]
+    end
+
+    GLOBAL --> PROJECT
+    PROJECT --> CANONICAL
+    CANONICAL --> WORKING
+    WORKING --> BRIDGE
+    WORKING --> DB
+    BRIDGE -.read across.-> CANONICAL
+
+    classDef global fill:#e5e7eb,stroke:#374151
+    classDef project fill:#dbeafe,stroke:#1e40af
+    classDef canon fill:#dcfce7,stroke:#166534
+    classDef work fill:#fef3c7,stroke:#92400e
+    classDef bridge fill:#fce7f3,stroke:#9d174d
+    classDef db fill:#ede9fe,stroke:#5b21b6
+
+    class UM,AM global
+    class PCM,QC,RULES project
+    class TT,VS,DC,DEC,OBJ,MK,CI,LR,PR,EP,CL canon
+    class BUS,LOG,HO,LOOPS work
+    class BR1,BR2,BR3,BR4,BR5 bridge
+    class SQL db

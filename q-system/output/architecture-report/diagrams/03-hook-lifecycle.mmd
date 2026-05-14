@@ -1,0 +1,34 @@
+flowchart TD
+    Start[Claude Code session begins] --> SS{SessionStart hook}
+    SS --> SS1[git-health-check.sh<br/>fleet status banner]
+    SS --> SS2[session-start.py<br/>load memory, paths]
+    SS --> SS3[md-prune.py<br/>archive stale files]
+    SS3 --> Ready[Session ready]
+
+    Ready --> UP{User submits prompt}
+    UP --> TG1[token-guard.py<br/>UserPromptSubmit]
+    TG1 --> Model[Model generates response]
+
+    Model --> PT{Pre tool use}
+    PT --> TG2[token-guard.py<br/>PreToolUse on any tool]
+    TG2 --> ToolCall[Tool executes]
+
+    ToolCall --> Post{Post tool use}
+    Post --> EW{Edit or Write?}
+    EW -- yes --> WC[wiring-check.py<br/>verify end-to-end wiring]
+    EW -- no --> Continue[Continue]
+    WC --> Continue
+
+    Continue --> CompCheck{Context compaction?}
+    CompCheck -- yes --> PC[post-compact.sh<br/>reinject mode loops voice]
+    CompCheck -- no --> StopCheck{Session stop?}
+    PC --> StopCheck
+
+    StopCheck -- yes --> SH1[auto-commit.py<br/>async commit dirty files]
+    StopCheck -- yes --> SH2[stop-logger.sh<br/>append session metadata]
+    StopCheck -- no --> UP
+
+    classDef event fill:#fef3c7,stroke:#92400e
+    classDef script fill:#dcfce7,stroke:#166534
+    class SS,UP,PT,Post,CompCheck,StopCheck,EW event
+    class SS1,SS2,SS3,TG1,TG2,WC,PC,SH1,SH2 script

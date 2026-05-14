@@ -1,0 +1,26 @@
+stateDiagram-v2
+    [*] --> idea : /prd-start &lt;idea&gt;
+    idea --> draft : capture rough notes into PRD spec
+    draft --> in_review : /prd-review (Codex runs review + adversarial)
+    in_review --> draft : /prd-revise (findings need work)
+    in_review --> approved : /prd-approve (all findings triaged)
+    approved --> split : /prd-split (decomposes into issue specs)
+    split --> archived : /prd-archive (only when every accepted finding has receipt)
+    archived --> [*]
+
+    note right of in_review
+        Codex review writes findings to JSONL.
+        Every finding gets a disposition:
+        - must-fix
+        - optional
+        - deferred
+        - rejected-with-reason
+        No finding may stay unset.
+    end note
+
+    note right of draft
+        Scope enforcement: while in
+        draft, edits are restricted
+        to the PRD file itself.
+        Concurrent PRD/issue blocked.
+    end note

@@ -1,0 +1,28 @@
+stateDiagram-v2
+    [*] --> open : /issue-start &lt;id&gt;
+    open --> in_progress : /issue-approve (stop-gate arms)
+    in_progress --> in_progress : edits within allowed_files
+    in_progress --> amended : /issue-amend (re-snapshot scope, clears receipts)
+    amended --> in_progress
+    in_progress --> verified : /issue-verify (all required_checks pass)
+    verified --> reviewed : /issue-review (Codex native + adversarial)
+    reviewed --> closed : /issue-closeout (every finding gets disposition)
+    closed --> [*]
+
+    note right of in_progress
+        scope_hook enforces:
+        - empty allowed_files = deny all
+        - edits restricted to whitelist
+        stop_gate fires up to 3 times
+        before forced exhaustion.
+    end note
+
+    note right of reviewed
+        Receipts required between
+        approve and close:
+        - verified
+        - reviewed
+        - findings_triaged
+        Codex never edits.
+        Claude is the sole editor.
+    end note

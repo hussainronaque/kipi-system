@@ -1,0 +1,58 @@
+flowchart TB
+    subgraph KS["kipi-system - skeleton repo"]
+        SK[Master skeleton<br/>plugins, rules, skills]
+        CLI[kipi CLI<br/>update push new check list]
+        REG[instance-registry.json]
+    end
+
+    subgraph BR["~/.ktlyst/bridge/ - shared cluster state"]
+        BR1[canonical-digest.json<br/>writer: strategy]
+        BR2[product_state.json<br/>writer: product]
+        BR3[legal-flags.json<br/>writer: lawyer]
+        BR4[website-state.json<br/>writer: website]
+        BR5[market_signal.json<br/>writer: strategy]
+        BR6[threat_status_history.json<br/>writer: product]
+    end
+
+    subgraph INST["Cluster Instances"]
+        I1[ktlyst-strategy<br/>positioning, fundraising]
+        I2[ktlyst-product<br/>extraction pipeline]
+        I3[ktlyst-website<br/>marketing site]
+        I4[ktlyst-lawyer<br/>legal, compliance]
+        I5[ktlyst-personal-brand]
+        I6[4_points_consulting]
+        I7[Pure_spectrum_Q]
+        I8[ASK_AI_consultant]
+    end
+
+    SK -- kipi update --> I1
+    SK -- kipi update --> I2
+    SK -- kipi update --> I3
+    SK -- kipi update --> I4
+    SK -- kipi update --> I5
+    SK -- kipi update --> I6
+    SK -- kipi update --> I7
+    SK -- kipi update --> I8
+
+    I1 -- writes --> BR1
+    I1 -- writes --> BR5
+    I2 -- writes --> BR2
+    I2 -- writes --> BR6
+    I3 -- writes --> BR4
+    I4 -- writes --> BR3
+
+    I1 -- reads --> BR2
+    I1 -- reads --> BR3
+    I1 -- reads --> BR4
+    I2 -- reads --> BR1
+    I3 -- reads --> BR1
+    I4 -- reads --> BR1
+
+    CLI -- registers --> REG
+
+    classDef skel fill:#e5e7eb,stroke:#374151
+    classDef bridge fill:#fce7f3,stroke:#9d174d
+    classDef inst fill:#dbeafe,stroke:#1e40af
+    class SK,CLI,REG skel
+    class BR1,BR2,BR3,BR4,BR5,BR6 bridge
+    class I1,I2,I3,I4,I5,I6,I7,I8 inst

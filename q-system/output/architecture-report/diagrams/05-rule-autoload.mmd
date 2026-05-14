@@ -1,0 +1,33 @@
+flowchart TD
+    Prompt[User prompt arrives] --> Detect{Auto-detection rules<br/>match content?}
+
+    Detect -- "pasted transcript" --> AutoDebrief[auto-detection.md<br/>fires q-debrief workflow]
+    Detect -- "social post screenshot" --> AutoEngage[auto-detection.md<br/>fires q-engage]
+    Detect -- "comment on someone's content" --> SocialGate[social-reaction-gate.md<br/>extract poster's claims first]
+    Detect -- "drafting external content" --> VoiceRule[voice-enforcement.md<br/>apply founder-voice skill]
+    Detect -- "design work" --> DesignAuto[design-auto-invoke.md<br/>load kipi-design skills]
+    Detect -- "AUDHD-relevant output" --> AUDHD[audhd-interaction.md<br/>apply executive function rules]
+    Detect -- "none" --> Direct[Default path]
+
+    AutoDebrief --> Apply
+    AutoEngage --> Apply
+    SocialGate --> Apply
+    VoiceRule --> Apply
+    DesignAuto --> Apply
+    AUDHD --> Apply
+    Direct --> Apply
+
+    Apply[Model generates response with<br/>active rules in context] --> Edit{Touching files?}
+    Edit -- yes --> Wiring[wiring-check.md<br/>verify connections]
+    Edit -- yes --> MDHygiene[md-hygiene.md<br/>line budgets, section pinning]
+    Edit -- yes --> FolderStruct[folder-structure.md<br/>placement enforced]
+    Edit -- no --> Done[Response delivered]
+    Wiring --> Done
+    MDHygiene --> Done
+    FolderStruct --> Done
+
+    classDef detect fill:#fef3c7,stroke:#92400e
+    classDef rule fill:#dbeafe,stroke:#1e40af
+    classDef gate fill:#fce7f3,stroke:#9d174d
+    class Detect,Edit detect
+    class AutoDebrief,AutoEngage,SocialGate,VoiceRule,DesignAuto,AUDHD,Wiring,MDHygiene,FolderStruct rule

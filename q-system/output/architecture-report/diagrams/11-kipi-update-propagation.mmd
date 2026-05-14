@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    participant F as Founder
+    participant CLI as kipi CLI
+    participant SK as Skeleton repo<br/>~/projects/kipi-system
+    participant REG as instance-registry.json
+    participant I1 as ktlyst-strategy
+    participant I2 as 4_points_consulting
+    participant IN as ...all N instances
+
+    F->>CLI: kipi update
+    CLI->>REG: load instance list
+    REG-->>CLI: 18 registered instances
+    CLI->>SK: read latest skeleton state
+    SK-->>CLI: q-system, .claude/rules, .claude/agents,<br/>.claude/output-styles, plugins
+
+    par parallel rsync per instance
+        CLI->>I1: copy q-system subset
+        CLI->>I1: copy .claude/rules
+        CLI->>I1: copy .claude/agents
+        CLI->>I1: copy plugins
+        CLI->>I2: same
+        CLI->>IN: same
+    end
+
+    CLI->>F: report changed files per instance
+
+    Note over CLI,IN: Root CLAUDE.md does NOT sync.<br/>Only q-system/CLAUDE.md, rules,<br/>agents, output-styles, plugins<br/>propagate via kipi update.
+
+    F->>CLI: kipi push (from an instance)
+    CLI->>SK: detect generic improvements
+    CLI->>F: present diff for skeleton merge

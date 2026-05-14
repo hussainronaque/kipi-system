@@ -1,0 +1,59 @@
+flowchart TB
+    subgraph U["User Layer"]
+        F[Founder]
+    end
+
+    subgraph CLI["Runtime - Claude Code CLI"]
+        CC[Claude Code Runtime<br/>context window, tool calls, MCP support]
+    end
+
+    subgraph KIPI["Kipi System - Operating System on top of Claude Code"]
+        direction TB
+        subgraph PL["Plugin Layer"]
+            P1[kipi-core 1.3.0]
+            P2[kipi-ops 1.2.0]
+            P3[kipi-design 1.2.0]
+            P4[kipi-dsse 0.1.0]
+            P5[prd-os 0.1.0]
+            P6[kipi-notebooklm 0.1.0]
+        end
+
+        subgraph BL["Behavior Layer"]
+            R[19 Rules<br/>.claude/rules/]
+            S[Skills<br/>plugins/*/skills/]
+            A[5 Agents<br/>.claude/agents/]
+            H[Hooks<br/>.claude/settings.json]
+        end
+
+        subgraph TL["Tool Layer"]
+            M[~69 MCP Tools<br/>kipi-mcp Python server]
+            DH[Deterministic Harnesses<br/>30+ Python scripts]
+        end
+
+        subgraph DL["Data Layer"]
+            C[canonical/ - 11 files]
+            MEM[memory/ index + auto-memory]
+            BUS[agent-pipeline/bus/ - JSON]
+            BRG[~/.ktlyst/bridge/ - cross-instance]
+            DB[(SQLite metrics_store)]
+        end
+    end
+
+    F --> CC
+    CC --> PL
+    PL --> BL
+    PL --> TL
+    BL --> DL
+    TL --> DL
+    DL --> BRG
+
+    classDef plugin fill:#dbeafe,stroke:#1e40af
+    classDef rule fill:#fef3c7,stroke:#92400e
+    classDef tool fill:#dcfce7,stroke:#166534
+    classDef data fill:#fce7f3,stroke:#9d174d
+    classDef runtime fill:#e5e7eb,stroke:#374151
+    class P1,P2,P3,P4,P5,P6 plugin
+    class R,S,A,H rule
+    class M,DH tool
+    class C,MEM,BUS,BRG,DB data
+    class CC,F runtime
