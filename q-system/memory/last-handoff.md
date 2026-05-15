@@ -1,38 +1,44 @@
 # Session Handoff
 
-**Date:** 2026-05-11
-**Theme:** Positioning shift — "founder OS" → "memory + reasoning + role-shifting"
+**Date:** 2026-05-15
+**Theme:** Compounding judgement loop + green CI
 
-## What shipped
+## What shipped (5 commits on main, all pushed)
 
-- **README rewrite** — commit `95f8af4`, pushed to `origin/main`. 87 ins / 145 del (~60% trim). Hero replaced with "It remembers everything you do. Then it becomes whatever you need." Cross-instance memory section added.
-- **GitHub repo description updated** via `gh repo edit`. Old: "A portable founder operating system..." → new: "Your AI brain, externalized. It remembers everything you do, then becomes whatever role you need..."
-- **LinkedIn post drafted** (antagonist-led version). Voice-skill polished. Hook: "Most AI apps handle one job. Mine runs as my chief of staff, lawyer, PM, and investigator." Ready to post.
-- **X post drafted** (same hook, 220 chars). Ready to post.
+- **Phase A: Skeptic learns from Codex findings** - commit `3fe8fd3`. After PRD archives, `propose_skeptic_antipatterns.py` reads the archived PRD's Skeptic Q-A pairs plus the matching Codex findings, routes each via `classify_findings.classify_body`, and writes a proposal to `q-system/output/skeptic-proposals/`. Wired best-effort into `prd_runner.cmd_archive`. 10 new pytest fixtures, all 263 prd-os tests green.
+- **Phase B: learn-from-correction skill** - same commit `3fe8fd3`. `plugins/kipi-core/skills/learn-from-correction/SKILL.md` encodes the 7-step Buzz workflow. `references/principle-vs-rule.md` is the load-bearing guardrail (principles transfer, rules overfit). Constraint: never auto-edits target skill files; output goes to `q-system/output/skill-proposals/`.
+- **Phase C: hitlist override capture** - same commit `3fe8fd3`. `copy-diffs.schema.json` gained optional `original_text` + `posted_text` fields. `01c-copy-diff.md` agent now captures full before/after when status is `edited`. `route-overrides-to-learn.py` reads `copy_edits` SQLite rows and emits an inbox markdown that the founder can hand to the learn-from-correction skill.
+- **Tree cleanup** - commits `80f3321` (lefthook: allow cleanup commits via `--diff-filter=ACMRT`), `d4f056c` (untrack 62 accidentally-committed `.pyc` files), `a677c0f` (auto-committed by Stop hook for last-handoff.md update).
+- **CI is green for the first time in weeks** - commit `61cecd0` (fixed 2 KTLYST refs in `init-bus-day.sh` comment + `validate-separation.py` skeleton sweep now excludes `memory/`, added pytest step that runs the 263 prd-os tests). Commit `123c06f` (bumped `actions/checkout@v6` + `actions/setup-python@v6` ahead of June 2026 Node 20 cutover).
 
 ## Decisions
 
-- Positioning is not bounded by user role (founder, PM, consultant). Bounded by capability — memory + reasoning + role-shifting.
-- Hook line for both posts: leads with the antagonist ("Most AI apps handle one job") then drops the role list.
-- Cross-instance memory is the headline differentiator vs PAI (Miessler).
+- Treating skills like code: every proposal (Skeptic anti-patterns, learn-from-correction outputs, engagement inbox) goes to a markdown file under `q-system/output/`. Founder commits the edit manually so Codex review fires on the diff. No auto-edit of skill or persona files anywhere in the loop.
+- Phase A uses signal we already have (Codex findings vs Skeptic Q-A) before building any new capture. Phase B generalizes the principle-extraction. Phase C captures new signal (engagement overrides) and routes to Phase B.
+- Lefthook's `blocked-paths` now scopes to `ACMRT` (additions, copies, modifications, renames, type-changes). Deletions pass through so cleanup commits don't need `--no-verify`. The protection against new `.env` or pycache additions still holds.
+- `q-system/memory/` is runtime state, not skeleton template. Excluded from the skeleton sweep validator the same way `output/` already was.
 
-## Evidence collected (cross-instance debrief)
+## Tree state
 
-6 parallel Explore agents read instances. Real proof of compounding:
-- **Pure_spectrum_Q**: 6 projects, 42+ artifacts, 189-triple graph, JA3 cluster insight reused in QEP arch decision 2 weeks later
-- **ktlyst-strategy**: 66 VCs tracked, 5 talk-track variants empirically validated against real investor retell-lines, RULE-004 retirement of spec-first lead
-- **ktlyst-lawyer**: 2 co-founder separation packages (Kaufmann, Stephan) with Delaware Code citations, second case reused first's framework
-- **4_points_consulting**: 25 OSINT cases, 244 evidence artifacts, **pulled `~/.ktlyst/bridge/canonical-digest.json` from a separate instance mid-investigation** (the killer cross-instance memory example)
-- **ASK_AI_consultant**: live $7,500/mo retainer, 9-phase morning routine, fail-stop discipline
-- **ktlyst-personal-brand**: timed out in debrief, gap for a future re-run
+- `main` synced with `origin/main`
+- No dirty files
+- 263 prd-os tests passing locally and in CI
+- CI gate: validate workflow runs in ~27s, green
 
 ## Open items
 
-- **Social preview IMAGE** on GitHub may still say "portable founder operating system" baked into the graphic. Description text is fixed; image needs web UI fix at https://github.com/assafkip/kipi-system/settings → Social preview → Edit or Remove
-- **Stale `.pyc` deletions** sitting in git index from before this session. Pre-commit hook blocked the README commit on them; resolved by path-scoping the commit to `README.md` only. Cleanup pending — they're still staged
-- **LinkedIn and X posts not yet posted** — drafts live in this session, founder ships when ready
+- **Phase A's classifier is narrow.** `classify_findings.py` only knows `vague-goal-class` and `empty-non-goals-class`. Other Codex finding shapes route to "uncategorized" in proposals. If proposals are noisy in practice, the right knob is adding classes + keywords to `classify_findings.py:21-37`.
+- **Learn-from-correction has no usage yet.** The skill exists, but nothing has been routed through it. First real test will be the next Phase A proposal that lands or the first time the founder runs `route-overrides-to-learn.py`.
+- **engagement-hitlist override capture is not yet runtime-validated.** The 01c-copy-diff agent change is documented; the next `/q-morning` run with an edited hitlist will be the first real capture.
+- **Plan file** at `~/.claude/plans/wise-sniffing-nebula.md` has the full A+B+C design including verification commands.
+
+## Next session entry points
+
+- If a PRD archived this week, check `q-system/output/skeptic-proposals/` for the first real proposal output and decide what (if anything) to merge into `plugins/prd-os/personas/skeptic.md`.
+- If you ran `/q-morning` and edited a hitlist comment, run `python3 q-system/.q-system/scripts/route-overrides-to-learn.py` and see what the inbox looks like.
 
 ## Reference
 
-- PAI repo analyzed: github.com/danielmiessler/Personal_AI_Infrastructure — pattern overlap (markdown, hooks, skills, no RAG) but PAI bounded by "Life OS" vs kipi unbounded
-- Daniel's killer pattern worth porting: ContainmentGuard hook for structural privacy zones
+- Source idea: Warp's writeup on the Buzz agent (principles transfer, rules overfit; daily PR with diffs; feedback loop lives where the team already works).
+- Phase A reuses `phase0_measure` helpers (now public) for Skeptic section extraction. `__all__` declared.
+- All output dirs tracked via `.gitkeep`: `skeptic-proposals/`, `skill-proposals/`, `skill-proposals/_inbox/`.
