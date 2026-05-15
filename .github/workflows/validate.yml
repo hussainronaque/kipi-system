@@ -22,6 +22,14 @@ jobs:
         env:
           CI: true
 
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Run prd-os tests
+        run: pytest plugins/prd-os/tests/ -q
+        env:
+          CI: true
+
       - name: Check for protected file changes
         if: github.event_name == 'pull_request'
         run: |

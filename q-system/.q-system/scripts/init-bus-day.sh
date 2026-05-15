@@ -9,7 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 QROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Find instance bus dir (q-ktlyst or similar)
+# Find instance bus dir (any sibling directory named q-*)
 INSTANCE_DIR=""
 for d in "$QROOT"/../q-*/; do
     if [ -d "${d}.q-system/agent-pipeline/bus" ]; then
