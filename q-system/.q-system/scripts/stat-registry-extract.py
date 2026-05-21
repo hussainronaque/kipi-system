@@ -41,7 +41,9 @@ CANONICAL_PATTERN = re.compile(r"/(canonical|my-project)/[^/]+\.md$")
 # canonical is the source.
 NUMERIC_PATTERNS = [
     re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s*%"),
-    re.compile(r"\$\d+(?:\.\d+)?(?:[KMB]\+?)?(?![\w])"),
+    # Dollar form mirrors stat-verify.py: ranges (e.g. $25-75K) extract as
+    # one token so the upper bound is part of the drift signal.
+    re.compile(r"\$\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?[KMB]?\+?(?![\w])"),
     re.compile(r"\b\d+(?:-\d+)?x\b", re.IGNORECASE),
 ]
 
@@ -82,13 +84,18 @@ def registry_approved(registry: dict) -> set[str]:
 
 
 def audit_file(canonical_file: Path, registry: dict) -> list[str]:
-    """Return numerics that appear in canonical_file but not in registry."""
+    """Return numerics that appear in canonical_file but not in registry.
+
+    Read errors surface as a synthetic drift entry — the contract is that
+    drift is loudly surfaced. A canonical file that can't be read is itself
+    a drift signal, not a silent pass.
+    """
     if not canonical_file.exists():
         return []
     try:
         text = canonical_file.read_text()
-    except (OSError, UnicodeDecodeError):
-        return []
+    except (OSError, UnicodeDecodeError) as e:
+        return [f"<unreadable: {type(e).__name__}>"]
     found = collect_numerics(text)
     approved = registry_approved(registry)
     return sorted(found - approved)

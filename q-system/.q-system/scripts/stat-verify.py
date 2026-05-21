@@ -153,7 +153,9 @@ CONTENT_KEY_DENY_EXACT = {
 PERCENT_RE = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s*%")
 
 # Dollars: $ then digits with optional decimal and K/M/B suffix (and +).
-DOLLAR_RE = re.compile(r"\$\d+(?:\.\d+)?(?:[KMB]\+?)?(?![\w])")
+# Range form (e.g. $25-75K) captured as a single token so the upper bound
+# is verified, not silently dropped.
+DOLLAR_RE = re.compile(r"\$\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?[KMB]?\+?(?![\w])")
 
 # Multipliers: e.g. 3x, 4-5x
 MULTIPLIER_RE = re.compile(r"\b\d+(?:-\d+)?x\b", re.IGNORECASE)
@@ -179,7 +181,8 @@ BENCHMARK_CONTEXT_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Count claims: numbers paired with KTLYST-canonical countable nouns.
+# Count claims: numbers paired with canonical countable nouns common in
+# security-content artifacts (instance-tunable via the registry).
 COUNT_RE = re.compile(
     r"\b(\d+(?:\+|\-\d+)?)\s+"
     r"(handoffs?|advisories|artifacts|folders?|teams?|input\s+types?|"
@@ -229,15 +232,26 @@ def find_registry(start_path: Path) -> Path | None:
         p = Path(env)
         return p if p.is_file() else None
 
+    # Walk up from the file's directory, checking only the direct
+    # `canonical/stat-registry.json` under each ancestor. rglob would descend
+    # into unrelated subtrees (sibling repos, other instances) and could
+    # satisfy lookup with the wrong registry.
+    #
+    # Stop the walk at an instance-root boundary: a directory containing a
+    # `.git` directory is the outer edge of "this instance". Without this,
+    # an instance that lacks its own registry would silently fall through to
+    # a parent workspace registry — Codex called this "silent fallback to an
+    # ancestor" and it violates fail-closed portability.
     here = start_path.resolve()
     if here.is_file():
         here = here.parent
     for parent in [here, *here.parents]:
-        for candidate in parent.rglob("canonical/stat-registry.json"):
-            sp = str(candidate)
-            if any(x in sp for x in ("/.venv/", "/node_modules/", "/__pycache__/")):
-                continue
+        candidate = parent / "canonical" / "stat-registry.json"
+        if candidate.is_file():
             return candidate
+        # Instance-root sentinel: do not walk beyond the .git boundary.
+        if (parent / ".git").exists():
+            return None
     return None
 
 
@@ -396,13 +410,20 @@ def verify_claim(token: str, approved: set[str], phrasings: list[tuple[str, str]
       - The surrounding ~120-char context contains any canonical phrasing
         substring (lowercased).
     """
-    for variant in normalize_numeric_token(token):
-        if variant in approved:
+    variants = {v.lower() for v in normalize_numeric_token(token)}
+    for variant in variants:
+        if variant in approved or token.strip() in approved:
             return True, None  # numeric-only match — no stat id needed
 
+    # Phrasing match must contain the token itself, not just any approved
+    # phrasing from the same context. Otherwise an unapproved number can be
+    # laundered by adjacent canonical wording — e.g. "21% / 76%" both
+    # passing because "21%" is in the phrasing string.
     ctx_lower = context.lower()
     for phrase, stat_id in phrasings:
-        if phrase and phrase in ctx_lower:
+        if not phrase or phrase not in ctx_lower:
+            continue
+        if any(v in phrase for v in variants):
             return True, stat_id
 
     return False, None
@@ -441,8 +462,14 @@ def lint_file(file_path: Path, registry: dict) -> list[dict]:
 
     try:
         raw = file_path.read_text()
-    except (OSError, UnicodeDecodeError):
-        return []
+    except (OSError, UnicodeDecodeError) as e:
+        # Fail closed: an unreadable in-scope file is a violation, not a
+        # silent skip. Hook caller sees this as exit 2 with stderr context.
+        return [{
+            "token": "<unreadable>",
+            "context": f"{file_path.name}: {type(e).__name__}",
+            "reason": f"cannot read file ({e}); failing closed",
+        }]
 
     if SKIP_MARKER in raw:
         return []
@@ -450,8 +477,12 @@ def lint_file(file_path: Path, registry: dict) -> list[dict]:
     if file_path.suffix == ".json":
         try:
             data = json.loads(raw)
-        except json.JSONDecodeError:
-            return []
+        except json.JSONDecodeError as e:
+            return [{
+                "token": "<malformed-json>",
+                "context": f"{file_path.name}: {e.msg} at line {e.lineno} col {e.colno}",
+                "reason": "malformed JSON; failing closed (cannot lint content)",
+            }]
         content_strings = collect_content_strings_from_json(data)
     else:
         content_strings = [raw]
@@ -494,37 +525,72 @@ def format_report(file_path: str, violations: list[dict]) -> str:
         lines.append(f"    {v['reason']}")
         lines.append("")
     lines.append("Fixes:")
-    lines.append("  1. Match a canonical phrasing from q-ktlyst/canonical/stat-registry.json, OR")
+    lines.append("  1. Match a canonical phrasing from your instance's canonical/stat-registry.json, OR")
     lines.append("  2. Tag the claim with {{UNVALIDATED}} inline (intentional unverified), OR")
     lines.append("  3. Add the claim to canonical first, then regenerate the registry.")
     lines.append("  4. File-level bypass: add  stat-verify-skip  anywhere in the file.")
     return "\n".join(lines)
 
 
-def append_block_log(file_path: str, violations: list[dict], registry_dir: Path) -> None:
-    """Append today's blocks to bus/{YYYY-MM-DD}/stat-verify-blocks.json."""
+def _find_bus_dir_for_target(target_path: Path) -> Path | None:
+    """Walk up from the target file looking for a `.q-system/agent-pipeline/bus`
+    in the target's own instance tree. Stops at .git boundary.
+
+    Anchoring the audit log to the TARGET's instance (not the registry's
+    instance) means a STAT_REGISTRY_PATH that points elsewhere does not
+    misroute audit entries.
+    """
+    here = target_path.resolve()
+    if here.is_file():
+        here = here.parent
+    for parent in [here, *here.parents]:
+        candidate = parent / ".q-system" / "agent-pipeline" / "bus"
+        if candidate.is_dir():
+            return candidate
+        if (parent / ".git").exists():
+            return None
+    return None
+
+
+def append_block_log(file_path: str, violations: list[dict]) -> None:
+    """Append today's blocks to bus/{YYYY-MM-DD}/stat-verify-blocks.json
+    inside the TARGET file's instance tree.
+
+    Best-effort: log write failures (permission, missing dir, malformed
+    existing file) are caught and warned to stderr but never override the
+    caller's exit-2 contract.
+    """
+    target = Path(file_path)
+    bus_root = _find_bus_dir_for_target(target)
+    if bus_root is None:
+        return
     today = _date.today().isoformat()
-    # Best-effort guess at bus dir based on registry location.
-    instance_root = registry_dir.parent  # canonical/ → instance root
-    bus_dir = instance_root / ".q-system" / "agent-pipeline" / "bus" / today
+    bus_dir = bus_root / today
     if not bus_dir.exists():
         return
     log_path = bus_dir / "stat-verify-blocks.json"
     entry = {
-        "ts": _date.today().isoformat(),
+        "ts": today,
         "file_path": file_path,
         "violations": violations,
     }
-    existing: list = []
-    if log_path.exists():
-        try:
-            existing = json.loads(log_path.read_text())
-            if not isinstance(existing, list):
+    try:
+        existing: list = []
+        if log_path.exists():
+            try:
+                existing = json.loads(log_path.read_text())
+                if not isinstance(existing, list):
+                    existing = []
+            except json.JSONDecodeError:
                 existing = []
-        except json.JSONDecodeError:
-            existing = []
-    existing.append(entry)
-    log_path.write_text(json.dumps(existing, indent=2))
+        existing.append(entry)
+        log_path.write_text(json.dumps(existing, indent=2))
+    except OSError as e:
+        print(
+            f"stat-verify: warning, audit log write failed ({e}); violation "
+            "still reported via stderr / exit 2.",
+            file=sys.stderr,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -575,7 +641,7 @@ def hook_mode() -> None:
         sys.exit(0)
 
     print(format_report(file_path, violations), file=sys.stderr)
-    append_block_log(file_path, violations, registry_path.parent)
+    append_block_log(file_path, violations)
     sys.exit(2)
 
 
@@ -587,8 +653,16 @@ def cli_mode(file_path: str) -> None:
 
     registry_path = find_registry(fp)
     if registry_path is None:
-        print("stat-verify: no canonical/stat-registry.json found", file=sys.stderr)
-        sys.exit(1)
+        # Align with hook mode: missing registry is a fail-closed condition
+        # (exit 2), not a generic error (exit 1). Acceptance criterion is
+        # "verifier exits 2 when no canonical/stat-registry.json is found".
+        print(
+            "stat-verify: no canonical/stat-registry.json found for "
+            f"{file_path}. Create the registry or set STAT_VERIFY_BOOTSTRAP=1 "
+            "for one-time bootstrap.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     registry = load_registry(registry_path)
     violations = lint_file(fp, registry)

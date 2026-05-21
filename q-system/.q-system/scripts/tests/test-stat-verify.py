@@ -251,6 +251,122 @@ def test_bootstrap_escape_allows_missing_registry(tmpdir: Path) -> None:
     assert rc == 0, f"bootstrap mode should pass; got {rc}; stderr={err}"
 
 
+def test_cli_missing_registry_exits_two_not_one(tmpdir: Path) -> None:
+    """CLI mode aligns with hook mode: exit 2 on missing registry, not 1."""
+    target = tmpdir / "lone.json"
+    target.write_text(json.dumps({"x_thread": ["42 handoffs"]}))
+    proc = subprocess.run(
+        ["python3", str(SCRIPT), str(target)],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "STAT_REGISTRY_PATH": str(tmpdir / "nope-registry.json")},
+    )
+    assert proc.returncode == 2, (
+        f"CLI must exit 2 on missing registry; got {proc.returncode}; "
+        f"stderr={proc.stderr!r}"
+    )
+
+
+def test_find_registry_does_not_walk_into_sibling_subtree(tmpdir: Path) -> None:
+    """find_registry's parent walk must not satisfy lookup from a sibling
+    subtree containing a stat-registry.json. Direct-check semantics only.
+    """
+    inst_a = tmpdir / "instance-A" / ".q-system" / "agent-pipeline" / "bus" / "2026-05-21"
+    inst_a.mkdir(parents=True)
+    target = inst_a / "tl-content.json"
+    target.write_text(json.dumps({"x_thread": ["42 handoffs"]}))
+
+    inst_b = tmpdir / "instance-B" / "canonical"
+    inst_b.mkdir(parents=True)
+    (inst_b / "stat-registry.json").write_text(json.dumps({"version": 1, "stats": []}))
+
+    payload = {
+        "tool_name": "Write",
+        "tool_input": {"file_path": str(target)},
+    }
+    proc = subprocess.run(
+        ["python3", str(SCRIPT)],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env={k: v for k, v in os.environ.items() if k != "STAT_REGISTRY_PATH"},
+    )
+    assert proc.returncode == 2, (
+        f"walk must not satisfy from sibling subtree; got {proc.returncode}; "
+        f"stderr={proc.stderr!r}"
+    )
+    assert "registry" in proc.stderr.lower()
+
+
+def test_phrasing_does_not_launder_unapproved_numeric(tmpdir: Path) -> None:
+    """A canonical phrasing in context must contain the token to validate it.
+    'SIEMs cover 21% of ATT&CK ... missing 76%' must block 76%."""
+    bus = make_instance(tmpdir)
+    target = bus / "tl-content.json"
+    target.write_text(json.dumps({
+        "x_thread": [
+            "SIEMs cover 21% of ATT&CK and are missing 76% of ATT&CK.",
+        ],
+    }))
+    payload = {
+        "tool_name": "Write",
+        "tool_input": {"file_path": str(target)},
+    }
+    rc, _, err = run_hook(payload)
+    assert rc == 2, f"context laundering must not pass 76%; got {rc}; err={err!r}"
+    assert "76%" in err, f"expected 76% in error; got {err!r}"
+
+
+def test_unreadable_file_fails_closed(tmpdir: Path) -> None:
+    """A file the linter cannot read must fail closed, not be silently
+    treated as clean."""
+    bus = make_instance(tmpdir)
+    target = bus / "tl-content.json"
+    target.write_bytes(b"\xff\xfe\x00\x00\xff")
+    payload = {
+        "tool_name": "Write",
+        "tool_input": {"file_path": str(target)},
+    }
+    rc, _, err = run_hook(payload)
+    assert rc == 2, f"unreadable file must fail closed; got {rc}; err={err!r}"
+    assert "unreadable" in err.lower() or "cannot read" in err.lower()
+
+
+def test_malformed_json_fails_closed(tmpdir: Path) -> None:
+    """Malformed in-scope JSON must fail closed, not silently pass."""
+    bus = make_instance(tmpdir)
+    target = bus / "tl-content.json"
+    target.write_text("{ this is not json")
+    payload = {
+        "tool_name": "Write",
+        "tool_input": {"file_path": str(target)},
+    }
+    rc, _, err = run_hook(payload)
+    assert rc == 2, f"malformed JSON must fail closed; got {rc}; err={err!r}"
+    assert "malformed" in err.lower() or "json" in err.lower()
+
+
+def test_dollar_range_extracted_as_one_token(tmpdir: Path) -> None:
+    """`$25-75K` must extract as a single token so the upper bound is
+    verified, not silently dropped."""
+    bus = make_instance(tmpdir, stat_overrides=[
+        {
+            "id": "ktlyst-acv",
+            "approved_numerics": ["$25-75K"],
+            "canonical_phrasings": ["$25-75K pilot"],
+        },
+    ])
+    target = bus / "tl-content.json"
+    target.write_text(json.dumps({"linkedin_draft": "Pilot ACV is $25-75K."}))
+    payload = {"tool_name": "Write", "tool_input": {"file_path": str(target)}}
+    rc, _, err = run_hook(payload)
+    assert rc == 0, f"$25-75K should pass with approved range; got {rc}; err={err!r}"
+
+    target.write_text(json.dumps({"linkedin_draft": "Pilot ACV is $25-99K."}))
+    rc, _, err = run_hook(payload)
+    assert rc == 2, f"$25-99K must block (upper bound not approved); got {rc}; err={err!r}"
+
+
 def test_self_test_passes(tmpdir: Path) -> None:
     proc = subprocess.run(
         ["python3", str(SCRIPT), "--self-test"],
@@ -273,6 +389,12 @@ TESTS = [
     test_non_edit_tool_silent,
     test_cli_clean_file_exits_zero,
     test_cli_dirty_file_exits_two,
+    test_cli_missing_registry_exits_two_not_one,
+    test_find_registry_does_not_walk_into_sibling_subtree,
+    test_phrasing_does_not_launder_unapproved_numeric,
+    test_unreadable_file_fails_closed,
+    test_malformed_json_fails_closed,
+    test_dollar_range_extracted_as_one_token,
     test_self_test_passes,
 ]
 
