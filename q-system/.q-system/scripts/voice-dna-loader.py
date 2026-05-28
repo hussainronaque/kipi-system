@@ -32,15 +32,30 @@ from pathlib import Path
 
 
 WRITING_TRIGGER_PATTERNS = [
-    r"\bwrite\b", r"\bdraft\b", r"\bcompose\b",
-    r"\brewrite\b", r"\brevise\b", r"\bedit\b",
-    r"\bpost\b", r"\bemail\b", r"\bdm\b",
-    r"\breply\b", r"\brespond\b", r"\bcomment\b", r"\bresponse\b",
+    # Direct write intents
+    r"\bwrit\w*\b", r"\bdraft\w*\b", r"\bcompose\w*\b",
+    r"\brewrite\w*\b", r"\brevise\w*\b", r"\bedit\w*\b",
+    r"\bredraft\w*\b", r"\bredo\b", r"\bpolish\w*\b",
+    # Content surfaces
+    r"\bpost\b", r"\bemail\w*\b", r"\bdm\b", r"\bmessage\b", r"\bmsg\b",
+    r"\breply\w*\b", r"\brespond\w*\b", r"\bcomment\w*\b", r"\bresponse\b",
     r"\barticle\b", r"\bessay\b", r"\bnewsletter\b",
+    r"\bsend\b", r"\btext\b", r"\bping\b",
+    # Platform-specific
     r"\blinkedin\b", r"\btwitter\b", r"\bmedium\b",
-    r"\bsubstack\b", r"\bthread\b",
+    r"\bsubstack\b", r"\bthread\b", r"\btweet\w*\b",
+    r"\binstagram\b", r"\btiktok\b", r"\breddit\b",
+    # Outreach / negotiation
     r"\boutreach\b", r"\bsales letter\b", r"\bcold email\b",
-    r"\btweet\b", r"\bcaption\b", r"\bheadline\b", r"\bsubject line\b",
+    r"\bcounter\b", r"\bcounter-?offer\b", r"\bnegotiat\w*\b",
+    r"\bpitch\b", r"\bproposal\b", r"\boffer\b", r"\brebut\w*\b",
+    # Structural elements
+    r"\bcaption\b", r"\bheadline\b", r"\bsubject line\b",
+    r"\bhook\b", r"\bopener\b", r"\bcloser\b", r"\bcta\b",
+    # Meta intents
+    r"\bvoice\b", r"\bcadence\b", r"\bdraft a\b",
+    r"\bwhat (should|do) I (write|say|send|reply)\b",
+    r"\bcan you (write|draft|compose)\b",
 ]
 
 VOICE_DNA_REL_PATH = "plugins/kipi-core/skills/founder-voice/references/voice-dna.md"

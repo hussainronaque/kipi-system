@@ -34,6 +34,7 @@ import sys
 from pathlib import Path
 
 PUBLISHED_PATH_PATTERNS = [
+    # q-system canonical content paths (original scope)
     r"q-system/output/articles/.*\.md$",
     r"q-system/marketing/.*\.md$",
     r"q-system/output/.*-post-.*\.md$",
@@ -41,9 +42,7 @@ PUBLISHED_PATH_PATTERNS = [
     r"q-system/output/linkedin-.*\.md$",
     r"q-system/output/medium-.*\.md$",
     r"q-system/output/substack-.*\.md$",
-    # Backstop scope for agent-pipeline content. stat-verify.py is the
-    # primary canonical-stat gate; voice-lint catches generic banned-word /
-    # stats-citation patterns on the same artifacts.
+    # Backstop scope for agent-pipeline content.
     r"agent-pipeline/bus/[^/]+/tl-content\.json$",
     r"agent-pipeline/bus/[^/]+/signals\.json$",
     r"agent-pipeline/bus/[^/]+/signal-outreach\.json$",
@@ -51,6 +50,29 @@ PUBLISHED_PATH_PATTERNS = [
     r"agent-pipeline/bus/[^/]+/hitlist\.json$",
     r"agent-pipeline/bus/[^/]+/pipeline-followup\.json$",
     r"agent-pipeline/bus/[^/]+/dp-pipeline\.json$",
+    # Generic published-content paths (any project, any depth).
+    # These catch the typical places non-q-system instances publish from.
+    r".*/articles/.*\.md$",
+    r".*/blog/.*\.md$",
+    r".*/posts/.*\.md$",
+    r".*/newsletter/.*\.md$",
+    r".*/launch/.*\.md$",
+    r".*/outreach/.*\.md$",
+    r".*/marketing/.*\.md$",
+    r".*/social/.*\.md$",
+    r".*/linkedin[^/]*\.md$",
+    r".*/twitter[^/]*\.md$",
+    r".*/x[-_][^/]*\.md$",
+    r".*/medium[^/]*\.md$",
+    r".*/substack[^/]*\.md$",
+    r".*/email[-_][^/]*\.md$",
+    r".*/dm[-_][^/]*\.md$",
+    r".*/reply[-_][^/]*\.md$",
+    r".*/post[-_][^/]*\.md$",
+    r".*/draft[-_][^/]*\.md$",
+    r".*[-_]post[-_].*\.md$",
+    r".*[-_]draft[-_].*\.md$",
+    r".*[-_]reply[-_].*\.md$",
 ]
 
 SKIP_MARKER = "voice-lint-skip"
@@ -346,7 +368,13 @@ def check_cross_paragraph_fragments(text):
 
 
 def check_sentence_uniformity(text):
-    """Detect 3+ consecutive sentences with very similar word counts."""
+    """Detect 3+ consecutive sentences with very similar word counts.
+
+    v2: dropped the 5-word floor. AI's most common cadence tell is short
+    clipped declaratives ("The X is Y. The Z isn't W."). Excluding sentences
+    under 5 words let exactly those patterns pass undetected. Now flags
+    triples within 1-word range across any length from 2 to 18.
+    """
     violations = []
     prose_text = strip_code_for_prose_check(text)
     paragraphs = prose_text.split("\n\n")
@@ -361,7 +389,7 @@ def check_sentence_uniformity(text):
             continue
         for i in range(len(sentences) - 2):
             counts = [word_count(s) for s in sentences[i:i+3]]
-            if max(counts) - min(counts) <= 1 and 5 <= min(counts) <= 18:
+            if max(counts) - min(counts) <= 1 and 2 <= min(counts) <= 18:
                 line = find_line_number(text, para_start)
                 violations.append({
                     "rule": "sentence-uniformity",
@@ -373,10 +401,37 @@ def check_sentence_uniformity(text):
 
 
 def check_rule_of_three(text):
+    """Detect three-of-a-kind sentence-opener patterns.
+
+    v2: in addition to the original 3-consecutive same-first-word check,
+    now also flags repeated-opener DENSITY: 3+ sentences in any 5-sentence
+    window starting with the same word. Catches the AI pattern of
+    "The X. The Y. [longer]. [longer]. The Z." that the consecutive check
+    misses.
+    """
     violations = []
     prose_text = strip_code_for_prose_check(text)
     paragraphs = prose_text.split("\n\n")
     cursor = 0
+    # density check across the whole document
+    all_sentences = []
+    for para in paragraphs:
+        all_sentences.extend(split_sentences(para))
+    seen_density = set()
+    if len(all_sentences) >= 5:
+        for start in range(len(all_sentences) - 4):
+            window = all_sentences[start:start+5]
+            firsts = [first_word(s) for s in window]
+            from collections import Counter
+            counts = Counter(w for w in firsts if w)
+            for word, c in counts.items():
+                if c >= 3 and word not in seen_density:
+                    seen_density.add(word)
+                    violations.append({
+                        "rule": "rule-of-three-density",
+                        "line": 1,
+                        "detail": f"opener '{word}' appears {c} times in a 5-sentence window starting at sentence {start+1}",
+                    })
     for para in paragraphs:
         para_start = prose_text.find(para, cursor) if para else cursor
         if para_start == -1:
