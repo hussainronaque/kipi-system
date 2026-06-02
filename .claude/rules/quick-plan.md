@@ -47,6 +47,31 @@ Then write `q-system/output/plans/<slug>-<YYYY-MM-DD>.md` containing:
 `q-system/output/plans/` lives under `output/`, which `kipi update` excludes from
 sync. Plans stay instance-local; they are not skeleton content.
 
+## Plan for the plan (deep work, anti-laziness)
+
+For deep, multi-input work (strategy doc from a meeting transcript, synthesis
+across a book + a conversation + prior decisions), do NOT ask for the deliverable
+directly. Asking for the deliverable directly makes the model cut corners.
+
+The move: first write a plan for HOW the deliverable gets produced. "Here is the
+transcript, the source PDF, and the problem. Do not write the document. Plan how
+you will mine each input and assemble it, with acceptance criteria. Writing the
+doc is the next step." Then execute that plan.
+
+This forces the deep version every time. The plan-for-the-plan is itself a
+`plan.md` in `q-system/output/plans/`; the deliverable is a separate output.
+
+## Reading the plan (founder does not read 300 lines)
+
+The plan exists to make the agent commit to an approach and hit its own
+acceptance criteria. It is the agent's homework, not the founder's reading
+assignment. Do not surface the full plan body for the founder to read.
+
+Instead, surface a one-line title and offer inline access on demand: an `eli5`
+of the approach, a TLDR, or an answer to "why this approach?". This is the AUDHD
+executive-function rule applied: if the founder cannot act on it in a glance, it
+does not belong in the response. Full plan body stays in the file.
+
 ## Resuming
 
 A plan is a checkpoint. If context is lost, a fresh session reads the plan file
