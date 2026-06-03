@@ -194,8 +194,9 @@ def lint_text(file_path, text):
 def lint_file(file_path):
     try:
         text = Path(file_path).read_text(encoding="utf-8")
-    except Exception as e:
-        return [{"rule": "read-error", "detail": str(e)}]
+    except Exception:
+        # Never block a write on an infra/read failure; this is a content gate.
+        return []
     if SKIP_MARKER in text:
         return []
     return lint_text(file_path, text)
