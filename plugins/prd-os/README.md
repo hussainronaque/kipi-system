@@ -108,3 +108,28 @@ Those land in steps 3-10 per the approved build order.
 ## Why plugin packaging over a copied directory
 
 FAANG-style internal developer tools ship as versioned, installable packages with explicit upgrade paths. Claude Code's plugin system supports that directly: versioned manifest, auto-discovery of commands and skills, hook registration via `hooks.json` using `${CLAUDE_PLUGIN_ROOT}`, and marketplace distribution. A copied directory can't give us any of that without building it ourselves. The plugin model is the most practical path, not the fanciest.
+
+
+## The spine contract (prd-os-spine-native, 2026-06-12)
+
+Acceptance is a negative invariant, machine-enforced:
+
+- **Manifest fields** — every issue entry carries `bypass_check` (the command
+  proving no bypass remains) or an explicit `bypass_exempt: <reason>`;
+  optional `invariant` (the statement) and `deletes` (regex list the issue
+  must remove from tracked source). Approval refuses entries with neither.
+- **Gate registry** — `.prd-os/gates.jsonl` (committed). Issue closeout
+  auto-registers `bypass_check` BEFORE flipping status; a registration
+  failure aborts the close. `prd_runner.py gates list|run` — run executes
+  every registered gate from the repo root, red exits non-zero. The registry
+  only grows; gates are forever.
+- **Deletion rule** — closeout greps each `deletes` regex is GONE from
+  tracked *.py/*.html (excluding tests/, .prd-os/, docs/, q-system/output/).
+- **Phase gating** — PRD frontmatter `depends_on: <prd-id>`; activation
+  (`load`) refuses while the dependency has any RED registered gate.
+- **Umbrella PRDs** — `kind: umbrella` legalizes an empty manifest; accepted
+  findings carry `covered_by: <phase-prd-id>` (verified to exist and be past
+  `idea` at archive; replaces issue receipts for those findings).
+- **Plan findings** — `findings_writer.py add --source plan` records the
+  author's decomposition for manifest traceability WITHOUT stamping
+  `codex_reviewed_at` (the review proof still requires a codex-* pass).

@@ -407,7 +407,7 @@ def test_findings_writer_output_unblocks_approval(
                 "title": "fix 1",
                 "finding_id": "finding-1",
                 "allowed_files": ["src/a.py"],
-                "required_checks": ["pytest"],
+                "required_checks": ["pytest"], "bypass_exempt": "test fixture",
             }
         ],
         indent=2,
@@ -657,3 +657,30 @@ def test_record_review_unblocks_approval_with_no_findings(
     ).returncode == 0
     r_ok = run_prd_runner(fake_repo, "advance", "approved")
     assert r_ok.returncode == 0, r_ok.stderr
+
+
+def test_plan_source_never_stamps_codex(fake_repo, write_config, run_findings_writer):
+    """plan findings satisfy manifest traceability WITHOUT counting as a
+    codex review — the stamp still requires a real codex-* pass."""
+    _bootstrap(fake_repo, write_config)
+    r = run_findings_writer(
+        fake_repo, "add", "prd-x", "--source", "plan",
+        stdin_text=json.dumps([{"severity": "major", "body": "planned work item"}]))
+    assert r.returncode == 0, r.stderr
+    out = json.loads(r.stdout)
+    assert out["codex_reviewed_stamped"] is False
+    spec = (fake_repo / ".prd-os" / "prds" / "prd-x.md").read_text()
+    assert "codex_reviewed_at" not in spec
+
+
+def test_covered_by_persists_on_disposition(fake_repo, write_config, run_findings_writer):
+    _bootstrap(fake_repo, write_config)
+    run_findings_writer(
+        fake_repo, "add", "prd-x", "--source", "plan",
+        stdin_text=json.dumps([{"severity": "major", "body": "x"}]))
+    r = run_findings_writer(
+        fake_repo, "set-disposition", "prd-x", "finding-1", "accepted",
+        "--covered-by", "prd-phase-1-2026-06-12")
+    assert r.returncode == 0, r.stderr
+    recs = _read_jsonl(_findings_file(fake_repo, "prd-x"))
+    assert recs[0]["covered_by"] == "prd-phase-1-2026-06-12"

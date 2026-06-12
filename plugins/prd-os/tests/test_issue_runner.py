@@ -515,3 +515,65 @@ def test_close_unblocks_prd_archive_end_to_end(
     archive_after = run_prd_runner(fake_repo, "archive")
     assert archive_after.returncode == 0, archive_after.stderr
     assert "archived" in archive_after.stdout
+
+
+def _make_closable(run_runner, fake_repo, write_config, write_issue_spec,
+                   issue_id, extra_frontmatter=""):
+    write_config(fake_repo, DEFAULT_CONFIG)
+    spec = write_issue_spec(fake_repo / ".prd-os" / "issues", issue_id,
+                            allowed_files=["src/**"])
+    if extra_frontmatter:
+        text = spec.read_text()
+        end = text.find("\n---", 3)
+        spec.write_text(text[:end] + "\n" + extra_frontmatter + text[end:])
+    run_runner(fake_repo, "load", issue_id)
+    run_runner(fake_repo, "approve")
+    for r in ("verified", "reviewed", "findings_triaged"):
+        run_runner(fake_repo, "mark", r)
+    return spec
+
+
+def test_close_blocks_while_deletes_pattern_present(
+        run_runner, fake_repo, write_config, write_issue_spec):
+    """Spine contract: a `deletes` regex still present in tracked source =
+    the old path was shadowed, not removed = no close."""
+    import subprocess
+    _make_closable(run_runner, fake_repo, write_config, write_issue_spec,
+                   "issue-del-block", 'deletes:\n  - legacy_write_path')
+    src = fake_repo / "src"
+    src.mkdir(exist_ok=True)
+    (src / "old.py").write_text("def legacy_write_path():\n    pass\n")
+    subprocess.run(["git", "init", "-q"], cwd=fake_repo)
+    subprocess.run(["git", "add", "-A"], cwd=fake_repo)
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                    "commit", "-qm", "seed"], cwd=fake_repo)
+    result = run_runner(fake_repo, "close")
+    assert result.returncode == 2
+    assert "deletes pattern" in result.stderr and "old.py" in result.stderr
+
+    (src / "old.py").write_text("# gone\n")
+    subprocess.run(["git", "add", "-A"], cwd=fake_repo)
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                    "commit", "-qm", "deleted"], cwd=fake_repo)
+    result = run_runner(fake_repo, "close")
+    assert result.returncode == 0, result.stderr
+
+
+def test_close_registers_bypass_check_gate(
+        run_runner, fake_repo, write_config, write_issue_spec):
+    """Closing an issue with bypass_check auto-registers the permanent gate
+    BEFORE the status flip; the registry line carries the command."""
+    import json as _json
+    import subprocess
+    _make_closable(run_runner, fake_repo, write_config, write_issue_spec,
+                   "issue-gate-reg", 'bypass_check: "pytest tests/test_no_bypass.py"')
+    subprocess.run(["git", "init", "-q"], cwd=fake_repo)
+    subprocess.run(["git", "add", "-A"], cwd=fake_repo)
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                    "commit", "-qm", "seed"], cwd=fake_repo)
+    result = run_runner(fake_repo, "close")
+    assert result.returncode == 0, result.stderr
+    gates = (fake_repo / ".prd-os" / "gates.jsonl").read_text().strip().splitlines()
+    recs = [_json.loads(l) for l in gates]
+    assert any(r["issue_id"] == "issue-gate-reg"
+               and r["command"] == "pytest tests/test_no_bypass.py" for r in recs)

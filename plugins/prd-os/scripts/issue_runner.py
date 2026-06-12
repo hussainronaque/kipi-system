@@ -347,12 +347,80 @@ def cmd_close(cfg: Config, args: argparse.Namespace) -> int:
         )
         return 2
     path, fm, text = _load_spec(cfg, issue_id)
+    import re as _re
+    _marker_re = _re.compile(
+        r"<!--\s+generated-by:\s+prd_split\.py\s+prd=(?P<prd>\S+)\s+"
+        r"finding=(?P<finding>\S+)\s+at=(?P<at>\S+)\s+-->")
+    marker_m = _marker_re.search(text)
+    marker = ({"prd_id": marker_m.group("prd")} if marker_m
+              else {"prd_id": (fm.get("parent_prd") or "").strip()})
+    if (fm.get("bypass_check") or fm.get("deletes")) and not marker["prd_id"]:
+        sys.stderr.write(
+            f"cannot close {issue_id}: spec carries spine-contract fields but "
+            "no PRD provenance (marker/parent_prd) — a gate registered without "
+            "its owning PRD breaks depends_on activation checks.\n")
+        return 2
+    contract_err = _enforce_spine_contract(cfg, fm, marker, issue_id)
+    if contract_err:
+        sys.stderr.write(contract_err)
+        return 2
     new_text = re.sub(r"(?m)^status:\s*.+$", "status: closed", text, count=1)
     path.write_text(new_text)
     _write_receipt(cfg, issue_id, new_text, state["receipts"])
     _write_state(cfg, _empty_state())
     print(json.dumps({"closed": issue_id, "spec": _relpath(cfg, path)}))
     return 0
+
+
+_DELETES_EXCLUDE = ("tests/", ".prd-os/", "docs/", "q-system/output/")
+
+
+def _enforce_spine_contract(paths, fm: dict, marker: dict, issue_id: str) -> str:
+    """Returns an error string (close aborts) or '' (close proceeds)."""
+    import subprocess as _subprocess
+    deletes = fm.get("deletes") or []
+    if isinstance(deletes, str):
+        deletes = [deletes]
+    if deletes:
+        # The deletion rule targets the COMMITTED tree (untracked files are
+        # not shipped); the type list covers every text-source family so a
+        # bypass cannot hide in JS/CSS/config (codex finding).
+        tracked = _subprocess.run(
+            ["git", "ls-files", "*.py", "*.html", "*.js", "*.ts", "*.css",
+             "*.sh", "*.yaml", "*.yml", "*.md", "*.json"],
+            cwd=paths.repo_root, capture_output=True, text=True).stdout.splitlines()
+        tracked = [f for f in tracked
+                   if not any(part in f for part in _DELETES_EXCLUDE)]
+        import re as _re
+        for pattern in deletes:
+            rx = _re.compile(pattern)
+            for rel in tracked:
+                try:
+                    content = (paths.repo_root / rel).read_text(errors="ignore")
+                except OSError:
+                    continue
+                if rx.search(content):
+                    return (f"cannot close {issue_id}: deletes pattern "
+                            f"{pattern!r} still present in {rel} — the old "
+                            "path must be GONE, not shadowed.\n")
+    # the minimal yaml parser keeps surrounding quotes — strip them
+    bypass_check = (fm.get("bypass_check") or "").strip().strip("\"'")
+    if bypass_check:
+        try:
+            sys.path.insert(0, str(paths.repo_root / "plugins" / "prd-os" / "scripts"))
+            import prd_runner as _prd_runner
+            from config import load as _load_config
+            cfg = _load_config(paths.repo_root)
+            out = _prd_runner.gate_register(
+                cfg, prd_id=marker["prd_id"], issue_id=issue_id,
+                command=bypass_check)
+        except Exception as exc:
+            return (f"cannot close {issue_id}: bypass_check gate registration "
+                    f"failed ({exc}) — the permanent registry must record it "
+                    "before close.\n")
+        sys.stderr.write(f"gate registered: {out['gate_id']}\n")
+    return ""
+
 
 
 def cmd_clear(cfg: Config, args: argparse.Namespace) -> int:

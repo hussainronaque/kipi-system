@@ -19,7 +19,7 @@ Why this lives in Python (not in a command prompt):
 
 Subcommands:
 
-  add <prd-id> --source <codex-review|codex-adversarial|manual>
+  add <prd-id> --source <codex-review|codex-adversarial|manual|plan>
       Reads a JSON array on stdin. Each item must be an object with
       {severity, body}. Appends one validated JSONL record per item.
       IDs increment from the current max id in the file (finding-1,
@@ -61,7 +61,11 @@ from config import Config, ConfigError, load as load_config  # noqa: E402
 
 
 SEVERITIES = ("blocker", "major", "minor", "nit")
-SOURCES = ("codex-review", "codex-adversarial", "manual")
+SOURCES = ("codex-review", "codex-adversarial", "manual", "plan")
+# `plan` records the author's own decomposition as findings so the manifest's
+# 1:1 traceability holds WITHOUT prompting Codex to echo the plan back
+# (prd-os-spine-native). Plan findings NEVER stamp codex_reviewed_at — the
+# approval gate's review proof still requires a real codex-* pass.
 CODEX_SOURCES = ("codex-review", "codex-adversarial")
 DISPOSITIONS = ("pending", "accepted", "rejected", "deferred")
 REQUIRES_RATIONALE = ("rejected", "deferred")
@@ -392,7 +396,7 @@ def cmd_list(cfg: Config, args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_set_disposition(cfg: Config, args: argparse.Namespace) -> int:
+def cmd_set_disposition(cfg: Config, args: argparse.Namespace) -> int:  # noqa: C901
     if args.disposition not in DISPOSITIONS:
         sys.stderr.write(
             f"disposition must be one of {DISPOSITIONS}; got {args.disposition!r}\n"
@@ -418,6 +422,9 @@ def cmd_set_disposition(cfg: Config, args: argparse.Namespace) -> int:
         sys.stderr.write(f"finding not found: {args.finding_id}\n")
         return 2
     target["disposition"] = args.disposition
+    if getattr(args, "covered_by", "") and args.covered_by.strip():
+        # umbrella coverage: this finding is owned by a phase PRD
+        target["covered_by"] = args.covered_by.strip()
     if args.rationale and args.rationale.strip():
         target["rationale"] = args.rationale.strip()
     elif args.disposition == "pending":
@@ -470,6 +477,8 @@ def main(argv: list[str] | None = None) -> int:
     p_set.add_argument("finding_id")
     p_set.add_argument("disposition")
     p_set.add_argument("--rationale", default="")
+    p_set.add_argument("--covered-by", default="", dest="covered_by",
+                       help="umbrella coverage: the phase PRD id that owns this finding")
     p_set.set_defaults(func=cmd_set_disposition)
 
     p_rec = sub.add_parser("record-review")

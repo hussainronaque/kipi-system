@@ -180,6 +180,42 @@ def cmd_new(cfg: Config, args: argparse.Namespace) -> int:
     return 0
 
 
+def _depends_on_gate(cfg: Config, spec_path) -> tuple[int, str]:
+    """Phase gating (prd-os-spine-native): a PRD with `depends_on: <prd-id>`
+    cannot activate while the dependency's registered gates are RED — the
+    spine's "phase N+1 starts only on green" rule, mechanized."""
+    try:
+        fm = _parse_frontmatter(spec_path.read_text())
+    except ValueError:
+        return 0, ""  # malformed specs fail later, with the better message
+    dep = (fm.get("depends_on") or "").strip()
+    if not dep:
+        return 0, ""
+    import subprocess as _subprocess
+    gates = _gates_path(cfg)
+    if not gates.is_file():
+        return 0, ""  # no registry yet — nothing to gate on
+    for raw in gates.read_text().splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if rec.get("prd_id") != dep:
+            continue
+        result = _subprocess.run(rec["command"], shell=True,
+                                 cwd=cfg.repo_root, capture_output=True,
+                                 text=True, timeout=900)
+        if result.returncode != 0:
+            return 2, (
+                f"activation blocked: dependency {dep} has a RED gate "
+                f"({rec['gate_id']}: {rec['command'][:80]}). Fix the "
+                "dependency before starting this PRD.\n")
+    return 0, ""
+
+
 def cmd_load(cfg: Config, args: argparse.Namespace) -> int:
     prd_id = args.prd_id
     try:
@@ -193,6 +229,10 @@ def cmd_load(cfg: Config, args: argparse.Namespace) -> int:
     if not spec_path.is_file():
         sys.stderr.write(f"PRD spec not found: {spec_path}\n")
         return 2
+    rc, err = _depends_on_gate(cfg, spec_path)
+    if rc != 0:
+        sys.stderr.write(err)
+        return rc
     try:
         fm = _parse_frontmatter(spec_path.read_text())
     except ValueError as exc:
@@ -428,6 +468,19 @@ def _issues_manifest_gate(cfg: Config, state: dict) -> tuple[int, str]:
                 f"approval blocked: manifest entry for {fid!r} has empty or "
                 "invalid required_checks (must be a non-empty list of non-empty strings).\n"
             )
+        # Spine contract (prd-os-spine-native): every entry proves no-bypass
+        # or states why it is exempt. Acceptance-as-negative-invariant is the
+        # machinery now, not operator discipline.
+        bypass_check = entry.get("bypass_check")
+        bypass_exempt = entry.get("bypass_exempt")
+        if not (isinstance(bypass_check, str) and bypass_check.strip()) and not (
+            isinstance(bypass_exempt, str) and bypass_exempt.strip()
+        ):
+            return 2, (
+                f"approval blocked: manifest entry for {fid!r} has neither "
+                "`bypass_check` (the command proving no bypass remains) nor "
+                "`bypass_exempt: <reason>` (spine contract).\n"
+            )
 
     # Cross-check against findings JSONL.
     fm = _parse_frontmatter(text)
@@ -449,6 +502,32 @@ def _issues_manifest_gate(cfg: Config, state: dict) -> tuple[int, str]:
                         fid = rec.get("id")
                         if isinstance(fid, str):
                             accepted.add(fid)
+
+    if fm.get("kind") == "umbrella":
+        # An umbrella PRD has no manifest of its own — its accepted findings
+        # are owned by phase PRDs via covered_by on the disposition
+        # (prd-os-spine-native). Verify every accepted finding names one.
+        uncovered = []
+        if rel:
+            findings_file = cfg.repo_root / rel
+            if findings_file.is_file():
+                with findings_file.open() as fh:
+                    for raw in fh:
+                        line = raw.strip()
+                        if not line:
+                            continue
+                        try:
+                            rec = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if (isinstance(rec, dict)
+                                and rec.get("disposition") == "accepted"
+                                and not (rec.get("covered_by") or "").strip()):
+                            uncovered.append(rec.get("id"))
+        if uncovered:
+            return 2, ("approval blocked: umbrella PRD accepted findings lack "
+                       f"covered_by (the owning phase PRD): {sorted(uncovered)}\n")
+        return 0, ""
 
     missing = sorted(accepted - seen_finding_ids)
     if missing:
@@ -522,6 +601,24 @@ def _findings_gate(cfg: Config, state: dict) -> tuple[int, str]:
 DEFERRED_WARN_DAYS = 30
 
 
+def _load_receipt_issue_ids(path: Path) -> set[str]:
+    ids: set[str] = set()
+    if not path.is_file():
+        return ids
+    with path.open() as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(rec, dict) and isinstance(rec.get("issue_id"), str):
+                ids.add(rec["issue_id"])
+    return ids
+
+
 def _load_receipts_for_prd(path: Path, prd_id: str) -> set[str]:
     covered: set[str] = set()
     if not path.is_file():
@@ -578,6 +675,47 @@ def _manifest_status_gate(cfg: Config, state: dict) -> tuple[int, str]:
         return 2, f"{spec_path}: frontmatter not closed with ---\n"
     body = text[fm_end + len("\n---"):]
 
+    # Umbrella archive gate (prd-os-spine-native): every accepted finding's
+    # covered_by must name an EXISTING phase-PRD spec that is past `idea` —
+    # coverage is real work, never a placeholder.
+    fm = _parse_frontmatter(text)
+    if fm.get("kind") == "umbrella":
+        rel = fm.get("findings_path")
+        if rel:
+            findings_file = cfg.repo_root / rel
+            if findings_file.is_file():
+                with findings_file.open() as fh:
+                    for raw in fh:
+                        line = raw.strip()
+                        if not line:
+                            continue
+                        try:
+                            rec = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if not (isinstance(rec, dict)
+                                and rec.get("disposition") == "accepted"):
+                            continue
+                        target = (rec.get("covered_by") or "").strip()
+                        target_path = cfg.prds_dir / f"{target}.md"
+                        if not target or not target_path.is_file():
+                            return 2, (
+                                f"archive blocked: umbrella finding {rec.get('id')} "
+                                f"covered_by {target!r} does not name an existing "
+                                "PRD spec.\n")
+                        t_fm = _parse_frontmatter(target_path.read_text())
+                        if t_fm.get("status") == "idea":
+                            return 2, (
+                                f"archive blocked: umbrella finding {rec.get('id')} "
+                                f"covered_by {target} is still `idea` — coverage "
+                                "must be real work, not a placeholder.\n")
+                        if t_fm.get("kind") == "umbrella":
+                            return 2, (
+                                f"archive blocked: umbrella finding {rec.get('id')} "
+                                f"covered_by {target} is itself an umbrella — "
+                                "coverage must name a concrete phase PRD.\n")
+        return 0, ""
+
     issues_match = re.search(r"(?m)^##\s+Issues\s*$", body)
     if not issues_match:
         return 0, ""
@@ -625,6 +763,17 @@ def _manifest_status_gate(cfg: Config, state: dict) -> tuple[int, str]:
                 break
         if status != "closed":
             open_issues.append((issue_id, status or "<missing>"))
+        else:
+            # A hand-edited `status: closed` without a close receipt skipped
+            # the contract enforcement (deletes grep + gate registration) —
+            # only issue_runner.close writes receipts, and close enforces
+            # the contract first (codex blocker).
+            receipt_ids = _load_receipt_issue_ids(cfg.receipts_path)
+            if issue_id not in receipt_ids:
+                return 2, (
+                    f"archive blocked: issue {issue_id} is marked closed but "
+                    "has NO close receipt — a hand-edited status bypasses the "
+                    "spine contract. Re-open and close via issue_runner.\n")
 
     if missing_specs:
         lines = [
@@ -694,6 +843,11 @@ def _archive_coverage_gate(cfg: Config, state: dict) -> tuple[int, str]:
             disposition = rec.get("disposition")
             fid = rec.get("id") or f"line-{lineno}"
             if disposition == "accepted":
+                if fm.get("kind") == "umbrella" and (rec.get("covered_by") or "").strip():
+                    # Umbrella findings are owned by phase PRDs (covered_by),
+                    # not by this PRD's issues — the manifest gate verifies
+                    # the coverage target exists; no receipt expected here.
+                    continue
                 if isinstance(fid, str):
                     accepted.append(fid)
             elif disposition == "deferred":
@@ -746,6 +900,76 @@ def _archive_coverage_gate(cfg: Config, state: dict) -> tuple[int, str]:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Gate registry (prd-os-spine-native): permanent bypass proofs
+# ---------------------------------------------------------------------------
+
+
+def _gates_path(cfg: Config):
+    return cfg.repo_root / ".prd-os" / "gates.jsonl"
+
+
+def gate_register(cfg: Config, *, prd_id: str, issue_id: str, command: str) -> dict:
+    """Idempotent append: gate_id = <issue_id>-<sha256(command)[:8]>; an
+    existing gate_id is a no-op. Single-line write + flush (atomic at line
+    granularity); raises on I/O failure so the CALLER (dsse close) aborts."""
+    import hashlib as _hashlib
+    gate_id = f"{issue_id}-{_hashlib.sha256(command.encode()).hexdigest()[:8]}"
+    path = _gates_path(cfg)
+    if path.is_file():
+        for raw in path.read_text().splitlines():
+            try:
+                if json.loads(raw).get("gate_id") == gate_id:
+                    return {"gate_id": gate_id, "registered": False}
+            except json.JSONDecodeError:
+                continue
+    record = {"gate_id": gate_id, "prd_id": prd_id, "issue_id": issue_id,
+              "command": command,
+              "registered_at": _now_iso()}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as fh:
+        fh.write(json.dumps(record) + "\n")
+        fh.flush()
+    return {"gate_id": gate_id, "registered": True}
+
+
+def cmd_gates(cfg: Config, args) -> int:
+    """gates list — print the registry; gates run — execute every gate from
+    the repo root (operator-authored shell commands, the same trust boundary
+    as required_checks), per-gate green/RED, non-zero exit on any RED."""
+    import subprocess as _subprocess
+    path = _gates_path(cfg)
+    records = []
+    if path.is_file():
+        for lineno, raw in enumerate(path.read_text().splitlines(), start=1):
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                sys.stderr.write(f"{path}:{lineno}: invalid JSONL — fix before running gates\n")
+                return 2
+    if args.gates_cmd == "list":
+        print(json.dumps(records, indent=2))
+        return 0
+    failures = []
+    for rec in records:
+        result = _subprocess.run(rec["command"], shell=True, cwd=cfg.repo_root,
+                                 capture_output=True, text=True, timeout=900)
+        status = "green" if result.returncode == 0 else "RED"
+        print(f"[{status}] {rec['gate_id']}: {rec['command'][:90]}")
+        if result.returncode != 0:
+            tail = (result.stdout + result.stderr).strip().splitlines()[-5:]
+            failures.append((rec["gate_id"], "\n".join(tail)))
+    if failures:
+        for gid, tail in failures:
+            sys.stderr.write(f"GATE RED: {gid}\n{tail}\n")
+        return 1
+    print(f"all {len(records)} registered gates green")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", help="override repo root discovery")
@@ -769,6 +993,9 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("archive").set_defaults(func=cmd_archive)
     sub.add_parser("clear").set_defaults(func=cmd_clear)
+    p_gates = sub.add_parser("gates")
+    p_gates.add_argument("gates_cmd", choices=("list", "run"))
+    p_gates.set_defaults(func=cmd_gates)
 
     args = parser.parse_args(argv)
     try:

@@ -296,6 +296,7 @@ def test_approve_allowed_when_all_dispositioned(fake_repo, write_config, run_prd
                 "finding_id": "finding-1",
                 "allowed_files": ["src/a.py"],
                 "required_checks": ["pytest"],
+                "bypass_exempt": "test fixture",
             }
         ],
     )
@@ -438,6 +439,7 @@ def test_archive_blocks_when_manifest_issue_is_open(
                 "finding_id": "finding-1",
                 "allowed_files": ["foo.py"],
                 "required_checks": ["pytest -q"],
+                "bypass_exempt": "test fixture",
             }
         ],
     )
@@ -475,6 +477,7 @@ def test_archive_passes_when_all_manifest_issues_closed(
                 "finding_id": "finding-1",
                 "allowed_files": ["bar.py"],
                 "required_checks": ["pytest -q"],
+                "bypass_exempt": "test fixture",
             },
             {
                 "id": "all-closed-issue-2",
@@ -482,9 +485,21 @@ def test_archive_passes_when_all_manifest_issues_closed(
                 "finding_id": "finding-2",
                 "allowed_files": ["baz.py"],
                 "required_checks": ["pytest -q"],
+                "bypass_exempt": "test fixture",
             },
         ],
     )
+    # closed status must be receipt-backed now (hand-edited closes bypass
+    # the spine contract) — write the legitimate close receipts.
+    import json as _json
+    receipts = fake_repo / ".prd-os" / "receipts.jsonl"
+    receipts.parent.mkdir(parents=True, exist_ok=True)
+    with receipts.open("a") as fh:
+        for iid in ("all-closed-issue-1", "all-closed-issue-2"):
+            fh.write(_json.dumps({
+                "issue_id": iid, "prd_id": prd_id,
+                "finding_id": "finding-1",
+                "closed_at": "2026-01-01T00:00:00Z"}) + "\n")
     r = run_prd_runner(fake_repo, "archive")
     assert r.returncode == 0, r.stderr
     assert _read_spec_status(fake_repo, prd_id) == "archived"
@@ -506,6 +521,7 @@ def test_archive_blocks_when_manifest_issue_spec_missing(
                 "finding_id": "finding-1",
                 "allowed_files": ["x.py"],
                 "required_checks": ["pytest -q"],
+                "bypass_exempt": "test fixture",
             }
         ],
     )
@@ -551,9 +567,103 @@ def test_advance_archived_also_runs_manifest_gate(
                 "finding_id": "finding-1",
                 "allowed_files": ["a.py"],
                 "required_checks": ["pytest -q"],
+                "bypass_exempt": "test fixture",
             }
         ],
     )
     r = run_prd_runner(fake_repo, "advance", "archived")
     assert r.returncode == 2
     assert "via-advance-issue-1" in r.stderr
+
+
+def test_approve_blocked_without_bypass_check_or_exempt(fake_repo, write_config, run_prd_runner):
+    """Spine contract: an entry with neither bypass_check nor bypass_exempt
+    cannot approve; adding either unblocks."""
+    _bootstrap(fake_repo, write_config)
+    assert run_prd_runner(fake_repo, "new", "contract-x").returncode == 0
+    prd_id = _read_state(fake_repo)["prd_id"]
+    _walk_to_in_review(fake_repo, run_prd_runner)
+    _stamp_reviewed(fake_repo, prd_id)
+    entry = {"id": "i1", "title": "t", "finding_id": "finding-1",
+             "allowed_files": ["a.py"], "required_checks": ["pytest"]}
+    _write_manifest(fake_repo, prd_id, [entry])
+    _write_findings(fake_repo, prd_id, [{
+        "id": "finding-1", "prd_id": prd_id, "source": "codex-review",
+        "severity": "minor", "disposition": "accepted", "body": "ok",
+        "created_at": "2026-04-16T00:00:00Z"}])
+    r = run_prd_runner(fake_repo, "advance", "approved")
+    assert r.returncode == 2
+    assert "bypass_check" in r.stderr and "bypass_exempt" in r.stderr
+
+    # unblock by editing the SAME manifest in place (a second _write_manifest
+    # would append a duplicate ## Issues heading and trip the dedup gate):
+    # parse the fenced JSON, add bypass_check, re-dump — serializer-agnostic.
+    import re as _re
+    spec = fake_repo / ".prd-os" / "prds" / f"{prd_id}.md"
+    text = spec.read_text()
+    m = _re.search(r"```json\n(.*?)```", text, _re.S)
+    manifest = json.loads(m.group(1))
+    manifest[0]["bypass_check"] = "pytest tests/test_no_bypass.py"
+    text = text[:m.start(1)] + json.dumps(manifest, indent=2) + "\n" + text[m.end(1):]
+    spec.write_text(text)
+    r = run_prd_runner(fake_repo, "advance", "approved")
+    assert r.returncode == 0, r.stderr
+
+
+def test_umbrella_kind_approves_empty_and_archives_on_real_coverage(
+        fake_repo, write_config, run_prd_runner):
+    """kind: umbrella — empty manifest approves when accepted findings carry
+    covered_by; archive verifies coverage targets exist and are past idea."""
+    _bootstrap(fake_repo, write_config)
+    assert run_prd_runner(fake_repo, "new", "umb").returncode == 0
+    prd_id = _read_state(fake_repo)["prd_id"]
+    spec = fake_repo / ".prd-os" / "prds" / f"{prd_id}.md"
+    spec.write_text(spec.read_text().replace(
+        f"id: {prd_id}", f"id: {prd_id}\nkind: umbrella", 1))
+    _walk_to_in_review(fake_repo, run_prd_runner)
+    _stamp_reviewed(fake_repo, prd_id)
+    _write_findings(fake_repo, prd_id, [{
+        "id": "finding-1", "prd_id": prd_id, "source": "codex-review",
+        "severity": "major", "disposition": "accepted", "body": "phase work",
+        "created_at": "2026-04-16T00:00:00Z",
+        "covered_by": "prd-missing-phase-2099-01-01"}])
+    r = run_prd_runner(fake_repo, "advance", "approved")
+    assert r.returncode == 0, r.stderr  # approval: coverage NAMED is enough
+    # archive: the named coverage must EXIST and be past idea
+    r = run_prd_runner(fake_repo, "archive")
+    assert r.returncode == 2
+    assert "covered_by" in r.stderr
+    phase = fake_repo / ".prd-os" / "prds" / "prd-missing-phase-2099-01-01.md"
+    phase.write_text("---\nid: prd-missing-phase-2099-01-01\nstatus: draft\n---\n# p\n")
+    r = run_prd_runner(fake_repo, "archive")
+    assert r.returncode == 0, r.stderr
+
+
+def test_depends_on_blocks_activation_on_red_gate(
+        fake_repo, write_config, run_prd_runner):
+    """Phase gating: a PRD depending on another cannot LOAD while that
+    dependency has a RED registered gate; green unblocks."""
+    import json as _json
+    _bootstrap(fake_repo, write_config)
+    assert run_prd_runner(fake_repo, "new", "phase-one").returncode == 0
+    dep_id = _read_state(fake_repo)["prd_id"]
+    assert run_prd_runner(fake_repo, "clear").returncode == 0
+    assert run_prd_runner(fake_repo, "new", "phase-two").returncode == 0
+    two_id = _read_state(fake_repo)["prd_id"]
+    assert run_prd_runner(fake_repo, "clear").returncode == 0
+    spec2 = fake_repo / ".prd-os" / "prds" / f"{two_id}.md"
+    spec2.write_text(spec2.read_text().replace(
+        f"id: {two_id}", f"id: {two_id}\ndepends_on: {dep_id}", 1))
+    gates = fake_repo / ".prd-os" / "gates.jsonl"
+    gates.parent.mkdir(parents=True, exist_ok=True)
+    gates.write_text(_json.dumps({
+        "gate_id": "g-red", "prd_id": dep_id, "issue_id": "i",
+        "command": "false", "registered_at": "2026-01-01T00:00:00Z"}) + "\n")
+    r = run_prd_runner(fake_repo, "load", two_id)
+    assert r.returncode == 2
+    assert "RED gate" in r.stderr
+    gates.write_text(_json.dumps({
+        "gate_id": "g-green", "prd_id": dep_id, "issue_id": "i",
+        "command": "true", "registered_at": "2026-01-01T00:00:00Z"}) + "\n")
+    r = run_prd_runner(fake_repo, "load", two_id)
+    assert r.returncode == 0, r.stderr

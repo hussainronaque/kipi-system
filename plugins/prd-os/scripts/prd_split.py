@@ -201,6 +201,14 @@ def _validate_entry(entry: object, index: int) -> dict:
     acceptance = entry.get("acceptance", "")
     if not isinstance(acceptance, str):
         raise ValueError(f"entry #{index}: acceptance must be a string")
+    for key in ("invariant", "bypass_check", "deletes", "bypass_exempt"):
+        if key in entry and entry[key] is not None:
+            if key == "deletes":
+                v = entry[key]
+                if not isinstance(v, list) or not all(isinstance(x, str) and x for x in v):
+                    raise ValueError(f"entry #{index}: deletes must be a list of regex strings")
+            elif not isinstance(entry[key], str) or not entry[key].strip():
+                raise ValueError(f"entry #{index}: {key} must be a non-empty string")
     return {
         "id": issue_id,
         "title": title.strip(),
@@ -211,6 +219,12 @@ def _validate_entry(entry: object, index: int) -> dict:
         "required_checks": list(entry["required_checks"]),
         "required_reviews": list(entry.get("required_reviews", [])),
         "acceptance": acceptance,
+        # Spine contract fields (prd-os-spine-native) — verbatim passthrough
+        # into the issue spec so dsse closeout can enforce them.
+        "invariant": entry.get("invariant", ""),
+        "bypass_check": entry.get("bypass_check", ""),
+        "deletes": list(entry.get("deletes", [])),
+        "bypass_exempt": entry.get("bypass_exempt", ""),
     }
 
 
@@ -268,6 +282,20 @@ def _render_spec(
         .replace("{{required_reviews_yaml}}", _yaml_list(entry["required_reviews"]))
         .replace("{{acceptance}}", entry["acceptance"] or "<!-- fill in -->")
     )
+    # Spine contract fields: append to frontmatter (template-independent so
+    # old templates keep working).
+    extra = []
+    if entry.get("invariant"):
+        extra.append(f"invariant: {json.dumps(entry['invariant'])}")
+    if entry.get("bypass_check"):
+        extra.append(f"bypass_check: {json.dumps(entry['bypass_check'])}")
+    if entry.get("deletes"):
+        extra.append("deletes:" + _yaml_list(entry["deletes"]))
+    if entry.get("bypass_exempt"):
+        extra.append(f"bypass_exempt: {json.dumps(entry['bypass_exempt'])}")
+    if extra:
+        end = rendered.find("\n---", 3)
+        rendered = rendered[:end] + "\n" + "\n".join(extra) + rendered[end:]
     return _inject_marker(rendered, marker)
 
 
