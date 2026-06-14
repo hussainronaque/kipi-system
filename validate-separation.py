@@ -303,6 +303,22 @@ def phase_1():
                 full_sweep += 1
     check(f"Full skeleton sweep: zero KTLYST/hardcoded refs ({full_sweep} files)", full_sweep == 0)
 
+    # Skill -> hook orphan audit (skill-hook-pairing rule). Runs the plugin-bundled,
+    # manifest-gated standalone audit against the skeleton: a lint/gate script authored but
+    # never wired into a hook config -> FAIL. Advisory (WARN) until a skeleton manifest exists.
+    audit = os.path.join(SCRIPT_DIR, "plugins", "kipi-core", "scripts", "skill-hook-audit.py")
+    if not file_exists(audit):
+        warn("Skill-hook audit: plugins/kipi-core/scripts/skill-hook-audit.py missing")
+    else:
+        result = subprocess.run([sys.executable, audit, SCRIPT_DIR], capture_output=True, text=True)
+        audit_out = (result.stdout + result.stderr).strip()
+        if "not onboarded" in audit_out:
+            warn("Skill-hook audit: skeleton has no manifest yet (advisory)")
+        else:
+            check("Skill-hook audit: no orphaned skill-hooks", result.returncode == 0)
+            if result.returncode != 0 and audit_out:
+                errors.append(audit_out)
+
 
 def phase_2():
     phase_header(2, "KTLYST_strategy subtree")
