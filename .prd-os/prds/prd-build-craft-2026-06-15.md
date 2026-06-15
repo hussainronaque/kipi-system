@@ -1,12 +1,13 @@
 ---
 id: prd-build-craft-2026-06-15
 title: Build Craft
-status: idea
+status: in-review
 created_at: 2026-06-15T01:26:37Z
-updated_at: 2026-06-15T01:26:37Z
+updated_at: 2026-06-15T03:51:16Z
 owner: assafkipnis
 reviewers: []
 findings_path: .prd-os/findings/prd-build-craft-2026-06-15-findings.jsonl
+codex_reviewed_at: 2026-06-15T03:48:56Z
 ---
 
 # Build Craft
@@ -15,6 +16,10 @@ findings_path: .prd-os/findings/prd-build-craft-2026-06-15-findings.jsonl
 > working tree. This PRD exists to put the already-built diff through the gated
 > Codex review and receipts it skipped on the fast path. Review should audit the
 > real diff, not a forward plan.
+>
+> Diff under review (working tree, uncommitted): the 8 files in Proposed approach
+> below, plus this spec and its findings file. No commit yet (deferred to a
+> branch after review); inspect the working tree directly. (finding-1)
 
 ## Problem
 
@@ -85,8 +90,10 @@ merely names the live path in an assertion.
 - Mitigation: the hook is tightly scoped (Python test files only; slashed-DB
   literal in call/assignment context only; `# build-craft-lint-skip` escape),
   verified zero false positives across 217 real kipi-investigations tests.
-- Rollback: remove the one hook line from hooks.json (skill+rule degrade to
-  advisory), or delete the skill directory. Both reversible, no data migration.
+- Rollback: remove the hook line from hooks.json (skill+rule degrade to
+  advisory), AND delete .claude/rules/build-craft-auto-invoke.md AND the
+  build-craft entries in skill-hook-pairing.md + plugin.json; or delete the skill
+  directory entirely. All reversible, no data migration. (finding-4)
 
 ## Open questions
 
