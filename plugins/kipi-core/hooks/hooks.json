@@ -10,6 +10,10 @@
           },
           {
             "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/build-craft/scripts/build-craft-lint.py\""
+          },
+          {
+            "type": "command",
             "command": "test -f \"${CLAUDE_PROJECT_DIR}/q-system/.q-system/scripts/voice-lint.py\" && python3 \"${CLAUDE_PROJECT_DIR}/q-system/.q-system/scripts/voice-lint.py\""
           },
           {
