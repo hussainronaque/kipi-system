@@ -1,9 +1,9 @@
 ---
 id: prd-accept-rate-metric-2026-06-15
 title: Accept Rate Metric
-status: in-review
+status: approved
 created_at: 2026-06-15T22:54:44Z
-updated_at: 2026-06-15T22:59:34Z
+updated_at: 2026-06-15T23:44:16Z
 owner: assafkip
 reviewers: []
 findings_path: .prd-os/findings/prd-accept-rate-metric-2026-06-15-findings.jsonl
@@ -67,6 +67,8 @@ Rollback is deleting one file.
 [
   {
     "id": "accept-rate-metric-script",
+    "finding_id": "finding-1",
+    "bypass_exempt": "Test-portability fix only (selftest runs in-memory so it works in a read-only sandbox). Read-only tool; introduces no gate, skip, or no-verify bypass.",
     "title": "accept-rate.py prd-os disposition/receipt-coverage metric",
     "allowed_files": ["q-system/.q-system/scripts/accept-rate.py"],
     "required_checks": ["python3 q-system/.q-system/scripts/accept-rate.py --selftest"],
