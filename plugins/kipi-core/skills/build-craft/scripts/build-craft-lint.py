@@ -23,18 +23,25 @@ Override:
     Add  # build-craft-lint-skip  anywhere in the file to bypass.
 
 Detector coverage (enumerated on purpose, per the hook-blind-spots rule):
-    CATCHES  a string literal that looks like a real DB path — has a path
-             separator AND a DB extension (.db/.sqlite/.sqlite3/.duckdb) — and is
-             not isolated, whether it sits directly in connect("...")/open("...")
-             or is assigned to a variable that is passed on. The separator
-             requirement is what lets `tmp_path / "t.db"` through: the bare
-             filename "t.db" has no separator, and isolation lives in the temp
-             variable, not the literal.
-    MISSES   a no-argument default call like db.connect() that uses a module-level
-             live DB_PATH. There is no literal to see. This is left to the skill
-             (use the monkeypatch-the-default convention) on purpose: a generic
-             no-arg detector false-positives on non-DB .connect() calls
-             (websockets, mocks) across instances.
+    CATCHES  a quoted literal that is a real DB path — has a path separator AND a
+             DB extension (.db/.sqlite/.sqlite3/.duckdb) — and is not isolated,
+             in ANY use except a comparison/assertion. That covers a direct
+             connect("...")/open("..."), every assignment form (plain, augmented
+             +=, walrus :=, dict/subscript/attr target), and a literal nested
+             inside an f-string. The path-separator requirement is what lets
+             `tmp_path / "t.db"` through: the bare filename "t.db" has no
+             separator, and isolation lives in the temp variable.
+    SKIPS    comparison/assertion lines (assert ..., ==, !=), where the literal
+             is being checked, not used — e.g. an OSS-secrets audit test
+             asserting the live path is NAMED in a report.
+    MISSES   (documented deferrals, each a low-likelihood shape that would add
+             false-positive risk to catch):
+             - a no-argument default db.connect() (no literal to see; left to the
+               skill's monkeypatch-the-default convention)
+             - adjacent string concatenation: connect('/dir/' 'x.db')
+             - a triple-quoted one-line DB path
+             - pathlib bare-segment joins: Path('/abs/data') / 'x.db'
+             - em-dash narration (not a tool call; lives in the skill + style)
 
 Scope (fast-exit otherwise, token discipline):
     Fires only on a Python TEST file, detected by basename test_*.py / *_test.py
@@ -51,41 +58,18 @@ SKIP_MARKER = "build-craft-lint-skip"
 # A path literal is isolated (safe in a test) if it names any of these.
 ISOLATION_TOKENS = (
     ":memory:", "tmp", "temp", "fixture", "fixtures", "mock", "sample",
-    "testdata", "test_data", "mktemp", "temporarydirectory", "tmp_path",
-    "tmpdir", "/var/folders", "getfixturevalue", "monkeypatch",
+    "testdata", "test_data", "golden", "mktemp", "temporarydirectory",
+    "tmp_path", "tmpdir", "/var/folders", "getfixturevalue", "monkeypatch",
 )
 
-DB_EXTS = (".db", ".sqlite", ".sqlite3", ".duckdb")
-
-# Simple single-line string literal (good enough; triple-quote bodies are skipped).
-_STR = re.compile(r"(['\"])(.*?)\1")
-
-# A live-DB literal only matters in a connect/open/copy call or a variable
-# assignment. In an assertion or comparison it is just a string being checked
-# (e.g. an OSS-secrets audit test asserting the live path is NAMED in a report),
-# so those lines are skipped to avoid false positives.
-CALL_CONTEXTS = (
-    "connect(", "open(", "init_db(", "sqlite3", "duckdb",
-    "write_text", "read_text", "copyfile", "copy2", "shutil.copy", ".copy(",
-)
-_ASSIGN = re.compile(r"^\s*[A-Za-z_][\w.]*\s*(?::[^=]+)?=(?!=)\s*")
+# A quoted literal that is a real DB path: contains a path separator AND ends in
+# a DB extension. Matches inside f-strings too (the inner quote is a real match).
+_DBPATH = re.compile(r"""(['"])([^'"]*[/\\][^'"]*\.(?:db|sqlite|sqlite3|duckdb))\1""")
 
 
 def _is_isolated(p):
     low = p.lower()
     return any(tok in low for tok in ISOLATION_TOKENS)
-
-
-def _is_live_db_path(p):
-    """A real live-DB path literal: a path separator AND a DB extension.
-
-    The separator requirement avoids flagging a bare filename fragment joined to
-    a temp base (e.g. tmp_path / "t.db"), where the isolation lives in the
-    variable, not the literal."""
-    low = p.lower()
-    if "/" not in low and "\\" not in low:
-        return False
-    return low.endswith(DB_EXTS)
 
 
 def is_test_file(file_path):
@@ -109,7 +93,8 @@ def find_violations(text):
                 in_doc = False
                 delim = None
             continue
-        if line.lstrip().startswith("#"):
+        s = line.lstrip()
+        if s.startswith("#"):
             continue
         # enter a triple-quoted block if one opens and does not close this line
         for q in ('"""', "'''"):
@@ -117,19 +102,17 @@ def find_violations(text):
                 in_doc = True
                 delim = q
                 break
-        if line.lstrip().startswith("assert"):
+        # skip comparisons/assertions: the literal is being checked, not used
+        if s.startswith("assert") or "==" in line or "!=" in line:
             continue
-        if not (any(c in line for c in CALL_CONTEXTS) or _ASSIGN.match(line)):
-            continue
-        for m in _STR.finditer(line):
+        for m in _DBPATH.finditer(line):
             path = m.group(2)
-            if not path or _is_isolated(path):
+            if _is_isolated(path):
                 continue
-            if _is_live_db_path(path):
-                key = (i, path)
-                if key not in seen:
-                    seen.add(key)
-                    violations.append((i, path))
+            key = (i, path)
+            if key not in seen:
+                seen.add(key)
+                violations.append((i, path))
     return violations
 
 
