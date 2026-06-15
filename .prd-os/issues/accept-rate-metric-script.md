@@ -1,7 +1,7 @@
 ---
 id: accept-rate-metric-script
 title: accept-rate.py prd-os disposition/receipt-coverage metric
-status: open
+status: in-progress
 priority: p1
 parent_prd: prd-accept-rate-metric-2026-06-15
 allowed_files:
