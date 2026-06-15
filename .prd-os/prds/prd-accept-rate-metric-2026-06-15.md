@@ -1,9 +1,9 @@
 ---
 id: prd-accept-rate-metric-2026-06-15
 title: Accept Rate Metric
-status: approved
+status: archived
 created_at: 2026-06-15T22:54:44Z
-updated_at: 2026-06-15T23:44:16Z
+updated_at: 2026-06-15T23:53:50Z
 owner: assafkip
 reviewers: []
 findings_path: .prd-os/findings/prd-accept-rate-metric-2026-06-15-findings.jsonl
