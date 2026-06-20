@@ -38,7 +38,7 @@ The plugin holds everything that should be identical across repos. The target re
 | Commands (`/prd-*`, `/issue-*`) | Same workflow across every repo |
 | Runner scripts (`prd_runner.py`, `issue_runner.py`, `prd_split.py`) | Deterministic logic, config-driven |
 | Hooks (`scope-hook.py`, `stop-gate.py`) | Same enforcement contract everywhere |
-| Templates (`prd.md`, `issue.md`, `review-rubric.md`) | Start-from shape; copied into repo on use |
+| Templates (`prd.md`, `issue.md`, `review-rubric.md`, `gap-classes.md`) | Start-from shape; copied into repo on use |
 | Findings schema (`findings.schema.json`) | Contract for PRD and issue review findings |
 | Skill (`SKILL.md`) | How Claude Code uses the system |
 | Tests (workflow-level) | Pin plugin behavior regardless of host repo |

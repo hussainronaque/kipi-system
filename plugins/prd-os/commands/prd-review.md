@@ -4,8 +4,10 @@ allowed-tools: Bash
 ---
 
 Review the active PRD against `templates/review-rubric.md`. The rubric defines
-five dimensions (problem clarity, scope discipline, atomic decomposition, risk
-surface, dependencies) and the severity scale (blocker | major | minor | nit).
+six dimensions (problem clarity, scope discipline, atomic decomposition, risk
+surface, dependencies, recurring gap classes) and the severity scale
+(blocker | major | minor | nit). Dimension 6 points at `templates/gap-classes.md`,
+the catalog of defect shapes that repeatedly ship past review.
 
 Do not hand-edit the findings JSONL. Do not pass raw Codex output to the writer
 verbatim. The writer accepts ONLY `{severity, body}` objects; extra keys are
@@ -22,7 +24,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/prd_runner.py" status
 
 Capture the `prd_id` and `spec_path` from the JSON output. If no PRD is active, stop and tell the author to run `/prd-start` first.
 
-2. Read the PRD body and `templates/review-rubric.md`. Run Codex against them. Codex may return prose, markdown, or malformed JSON. That is expected.
+2. Read the PRD body, `templates/review-rubric.md`, and `templates/gap-classes.md`. Run Codex against all three (the gap-classes catalog is what dimension 6 evaluates against). Codex may return prose, markdown, or malformed JSON. That is expected.
 
 3. Translate Codex's findings into the writer's input shape: a JSON array where every element is EXACTLY `{"severity": "blocker|major|minor|nit", "body": "one concrete concern"}`. One concern per element. No extra keys, no nesting. If Codex flagged the same concern twice, deduplicate.
 

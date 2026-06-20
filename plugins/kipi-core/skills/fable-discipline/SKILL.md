@@ -74,6 +74,14 @@ How to move through complex work without shipping a confident wrong answer.
    the specific past bug that motivates it, not a restatement of the code. These
    survive refactors because they encode an invariant.
 
+5. **Build against the recurring gap classes.** If the change scales or touches
+   sensitive data, walk the gap-class block in `references/checklist.md`: an
+   in-memory cap is not a disk bound; a UI hide is not access control; a gate
+   fails closed while a filter fails open; redact at the egress edge; a new flag
+   must reach every reader; check-then-mutate needs one lock; single-source the
+   version; a cross-cutting invariant needs a written scope + a self-enumerating
+   guard. Check only the classes the change touches.
+
 ---
 
 ## Consistency rules

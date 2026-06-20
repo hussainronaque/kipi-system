@@ -28,6 +28,31 @@ Codex output shape directly).
    - Upstream blockers (tools, access, data not yet available).
    - Downstream impact (other teams, other services, config contracts).
 
+6. **Recurring gap classes**
+   - For each class below, ask: does this PRD's design account for it, or does
+     the change's blast radius touch it without saying how? Flag the in-scope
+     ones as `major` (design gap) or `minor` (note it). These are shapes that
+     repeatedly ship past review; `gap-classes.md` has the full list with the
+     rule and the catch for each.
+   - Scaling/persistence: an append-only store without compaction + a bounded
+     read in the same change; per-item enrichment before the filter; a breaking
+     response-shape change instead of additive params/header; a persistence
+     feature whose data path is not verified on a durable mount.
+   - Security: a view/UI hide treated as access control (state not enforced at
+     the action endpoint on every reachable path); one helper used for both a
+     gate (must fail closed) and a filter (may fail open); redaction at a
+     mid-pipeline boundary that later code augments past; persisting the raw
+     object instead of a redacted projection; masking by appearance instead of
+     by recipient+necessity; hiding a thing that buries an open obligation.
+   - Correctness/concurrency: a new flag/field that does not reach every reader
+     of the store; an overloaded field that changes meaning for existing
+     consumers; check-then-mutate on shared state without one lock (+ an
+     N-thread reproducer); a health endpoint that can 500 on one bad row; a
+     version/identity hardcoded in more than one place.
+   - Cross-cutting: an invariant that must hold "everywhere" with no written
+     scope (what it does and does NOT cover) and no guard test that enumerates
+     its targets from the system rather than a hand list.
+
 ## Severity rubric
 
 - `blocker` — must fix before the PRD can advance to `approved`.

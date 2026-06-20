@@ -6,6 +6,18 @@ All notable changes to the `prd-os` plugin are recorded here. Format follows [Ke
 
 (next release goes here)
 
+## [0.3.0]
+
+### Added
+- `templates/gap-classes.md`: a catalog of recurring defect classes (scaling,
+  security, correctness/concurrency, cross-cutting) distilled from a
+  reproducer-first, adversarially-reviewed build where ~50 defects were caught
+  before merge. General by construction; no product specifics.
+- `templates/review-rubric.md`: a sixth review dimension, "Recurring gap
+  classes," that checks a PRD's design against the catalog.
+- `commands/prd-review.md`: `/prd-review` now reads `gap-classes.md` alongside
+  the rubric and feeds it to Codex, so dimension 6 has its source.
+
 ## [0.1.0] - 2026-04-16
 
 ### Added
