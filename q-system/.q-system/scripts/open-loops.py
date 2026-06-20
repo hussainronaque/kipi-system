@@ -65,8 +65,12 @@ def registry_loops(qroot):
 
 
 def deferred_findings(repo_root):
+    """Returns (surfaced, unclassified). surfaced = genuine future-work deferrals.
+    unclassified = deferred + not closeout-bookkeeping + not keyword-matched: COUNTED
+    (never silently dropped) so a plainly-worded parked finding can't fall on the ground."""
     out = []
     seen = set()
+    unclassified = 0
     for jf in sorted(glob.glob(str(repo_root / ".prd-os" / "findings" / "*.jsonl"))):
         try:
             lines = Path(jf).read_text().splitlines()
@@ -84,28 +88,30 @@ def deferred_findings(repo_root):
                 continue
             rationale = (d.get("rationale") or "").strip()
             if not rationale or FOLDED_RE.search(rationale):
-                continue
-            if not FUTURE_WORK_RE.search(rationale):
-                continue
-            body = (d.get("body") or d.get("id") or "deferred item").strip()
-            key = body[:60]
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append((body[:80], rationale[:120], False))
-    return out
+                continue  # closeout bookkeeping -> genuinely closed
+            if FUTURE_WORK_RE.search(rationale):
+                body = (d.get("body") or d.get("id") or "deferred item").strip()
+                key = body[:60]
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append((body[:80], rationale[:120], False))
+            else:
+                unclassified += 1  # not auto-classified -> surfaced as a catch-all
+    return out, unclassified
 
 
 def collect(project_dir):
-    qroot = get_qroot(project_dir)
     repo = project_root()
+    qroot = get_qroot(str(repo))  # anchor registry + findings to the same root (CLI-safe)
     loops = registry_loops(qroot)
-    loops += deferred_findings(repo)
-    return loops[:CAP]
+    fnd, unclassified = deferred_findings(repo)
+    loops += fnd
+    return loops[:CAP], unclassified
 
 
-def render(loops):
-    n = len(loops)
+def render(loops, unclassified=0):
+    n = len(loops) + (1 if unclassified else 0)
     head = (f"# Open loops ({n}) -- surface these to the founder now. Nothing parked "
             f"falls on the ground.\n"
             f"# Close one: set status:\"closed\" in q-system/memory/open-loops.json.\n")
@@ -113,6 +119,10 @@ def render(loops):
     for title, action, needs_founder in loops:
         tag = " [needs you]" if needs_founder else ""
         lines.append(f"- [ ] {title}{tag} -> {action}")
+    if unclassified:
+        lines.append(f"- [ ] {unclassified} deferred prd-os finding(s) not auto-classified "
+                     f"-> review rationale in .prd-os/findings/ and either close (won't-do) or "
+                     f"add to open-loops.json (so nothing stays in limbo)")
     return "\n".join(lines)
 
 
@@ -120,12 +130,12 @@ def main():
     try:
         project_dir = os.environ.get("CLAUDE_PROJECT_DIR", ".")
         report_mode = "--report" in sys.argv[1:]
-        loops = collect(project_dir)
-        if not loops:
+        loops, unclassified = collect(project_dir)
+        if not loops and not unclassified:
             if report_mode:
                 print("No open loops. Clean.")
             sys.exit(0)
-        body = render(loops)
+        body = render(loops, unclassified)
         if report_mode:
             print(body)
         else:

@@ -45,4 +45,14 @@ CLAUDE_PROJECT_DIR="$T2" python3 "$S" >/dev/null 2>&1 && rc=0 || rc=$?
 EOUT="$(CLAUDE_PROJECT_DIR="$T2" python3 "$S" 2>&1)"
 [ -z "$EOUT" ] || fail "empty case should emit nothing in hook mode, got: $EOUT"
 
-echo "PASS: surfaces registry loops (incl seeded OSS PRs) + genuine deferred findings, excludes closed + folded-into, valid SessionStart JSON, never blocks on empty"
+# 6. zero silent-fall: a plainly-worded deferred finding (no future-work keyword,
+#    not folded bookkeeping) must NOT vanish -> it lands in the catch-all line.
+T3="$(mktemp -d)"; mkdir -p "$T3/q-system/memory" "$T3/.prd-os/findings"
+echo '{"loops":[]}' > "$T3/q-system/memory/open-loops.json"
+printf '%s\n' \
+ '{"id":"g1","disposition":"deferred","body":"plainly parked","rationale":"park this for now, we still need to build it but not in this issue"}' \
+ > "$T3/.prd-os/findings/q.jsonl"
+OUT6="$(CLAUDE_PROJECT_DIR="$T3" python3 "$S" --report 2>&1)"
+echo "$OUT6" | grep -qi "not auto-classified" || fail "plainly-worded deferred not caught by catch-all (silent fall): $OUT6"
+
+echo "PASS: surfaces registry loops (incl seeded OSS PRs) + genuine deferred findings, excludes closed + folded bookkeeping, catch-all guarantees zero silent-fall, valid SessionStart JSON, never blocks on empty"
