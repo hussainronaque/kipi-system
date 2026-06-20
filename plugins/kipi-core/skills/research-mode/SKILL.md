@@ -42,8 +42,26 @@ Call `mcp__perplexity__perplexity_ask` with a focused question. Perplexity retur
 - Ask one question per call. Do not stuff multiple topics into one prompt.
 - If Perplexity returns "I don't know" or no citations, treat it as no answer. Escalate to Level 3 only if the founder explicitly asks for direct source text.
 
-**Level 3 -- WebFetch for direct quotes (rare, high cost):**
-Only when Perplexity's summary is insufficient and you need word-for-word text from a specific page. Use sparingly.
+**Level 3a -- Jina Reader (cheap default for page reads):**
+When Perplexity's summary is insufficient and you need word-for-word text from a specific page, default to Jina Reader BEFORE WebFetch. Returns clean markdown of any public URL with near-zero cost.
+
+Usage:
+```
+curl -s https://r.jina.ai/<TARGET_URL>
+```
+
+- Free up to 100 req/min, then ~$0.001/req. Pricing: https://jina.ai/reader
+- Returns content as readable markdown (no DOM noise, no script tags, no nav junk)
+- Works in cloud routines (no MCP, just HTTP). Works locally too.
+- Best for: blog posts, marketing pages, docs, news articles, GitHub READMEs, vendor /customers pages
+- Bad for: pages behind login walls (use Apify), highly dynamic SPAs that need hydration (escalate to 3c)
+- Parallelize across multiple URLs with `xargs -P` or similar
+
+**Level 3b -- WebFetch (only when Jina fails):**
+Use only if Jina Reader returns empty/error, or if the target page is Cloudflare-protected or auth-walled and Jina can't pass. WebFetch is ~10-50x more expensive per page than Jina due to LLM-side processing. Log every WebFetch call with rationale.
+
+**Level 3c -- Chrome DevTools MCP snapshot (JS-rendered, local only):**
+For pages that need browser rendering (heavy JS, hydration, single-page apps), use `mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_snapshot`. Returns accessibility tree (~10x smaller than full DOM). Local Claude Code sessions only -- not available in cloud routines.
 
 **Level 4 -- Scholar Gateway (for academic claims):**
 For academic papers or research findings, use Scholar Gateway MCP if available. Structured results, no page scraping.
@@ -53,10 +71,14 @@ When you need the FULL text of many pages SAVED for later search and citation (n
 
 ### Token budget
 - Maximum 3 Perplexity calls per research question
-- Maximum 2 WebFetch calls per research question (only if Level 2 was insufficient)
-- WebSearch is deprecated in this skill. Use Perplexity instead.
+- Maximum 10 Jina Reader calls per research question (cheap, parallelize)
+- Maximum 2 WebFetch calls per research question (only if Jina failed)
+- WebSearch is deprecated in this skill. Use Perplexity for breadth, Jina for depth.
 - If you hit the limit: summarize what you found, list what remains unverified, and ask the user if they want to go deeper
 - Parallel calls are fine. Serial retry loops are not.
+
+### Tool-selection rule
+If the source is a public marketing/blog/docs/news page, default to Jina (3a). Only escalate to WebFetch (3b) when Jina fails. Use chrome-devtools-mcp (3c) only when JS rendering is required AND you are in a local session. Log every WebFetch call to justify the cost.
 
 ### What counts as "cited"
 - Local file path + line number = cited
