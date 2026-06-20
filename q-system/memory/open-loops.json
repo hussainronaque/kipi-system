@@ -4,18 +4,20 @@
     {
       "id": "cc-spex-pr",
       "title": "cc-spex closeout-gate PR",
-      "next_action": "Check github.com/rhuss/cc-spex/issues/9. If the maintainer replied yes/just-send-it: fork rhuss/cc-spex, push branch chore/closeout-gate, open the PR. Commands + body in q-system/output/cc-spex-pr-drafts-2026-06-16.md. (gh runs in your terminal, not the agent sandbox.)",
+      "next_action": "Issue FILED + OPEN: github.com/rhuss/cc-spex/issues/9 (0 maintainer comments as of 2026-06-20). When a maintainer approves/invites the PR: fork rhuss/cc-spex, push branch chore/closeout-gate, gh pr create with the STEP 2 body in q-system/output/cc-spex-pr-drafts-2026-06-16.md. Then close this loop.",
       "needs_founder": true,
       "status": "open",
-      "added": "2026-06-20"
+      "added": "2026-06-20",
+      "github": "https://github.com/rhuss/cc-spex/issues/9"
     },
     {
       "id": "captoken-pr",
-      "title": "capability-token PR to dwarvesf/claude-guardrails",
-      "next_action": "Built + 12/12 tests pass, never filed. Run STEP 1 (one gh issue create) from q-system/output/captoken-pr-drafts-2026-06-16.md in your terminal, paste the issue URL back. PR after a maintainer thumbs-up.",
+      "title": "capability-token PR to dwarvesf/claude-guardrails (issue #14 filed)",
+      "next_action": "Issue FILED: github.com/dwarvesf/claude-guardrails/issues/14 (2026-06-20). Waiting on maintainer reply. When a maintainer approves/invites the PR: re-clone if /tmp wiped, git apply q-system/output/captoken-claude-guardrails.patch, push branch chore/capability-approval, gh pr create with q-system/output/captoken-pr-body.md. Then close this loop.",
       "needs_founder": true,
       "status": "open",
-      "added": "2026-06-20"
+      "added": "2026-06-20",
+      "github": "https://github.com/dwarvesf/claude-guardrails/issues/14"
     },
     {
       "id": "inv-h14h15-branch",
