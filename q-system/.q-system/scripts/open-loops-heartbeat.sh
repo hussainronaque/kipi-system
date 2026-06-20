@@ -41,7 +41,8 @@ Autonomous open-loops heartbeat run. You are a headless agent. Be terse and act 
    - OSS PR waiting on a maintainer: check the issue/PR via `gh issue view <n> --repo <r> --json comments,state` (and `gh pr list`). ONLY if a maintainer has clearly approved or invited the PR (an explicit affirmative comment) do you push it: follow the exact steps in the loop's next_action / the q-system/output/*-pr-drafts file, then set the loop status to "closed" with the PR URL. If there is NO clear maintainer approval yet, do NOTHING for that loop and leave it open.
    - Internal kipi-system work: drive it through prd-os in full (new PRD -> review -> tests -> blast radius -> closeout), making all triage/approve/merge decisions yourself per the autonomy contract. Close the loop when done.
 3. Hard limits (do NOT violate): no force-push, no `git reset --hard`, no branch deletion, no destructive ops, and NEVER publish to an external repo without a clear maintainer approval. When unsure, leave the loop open and do nothing.
-4. Report what you did in 3-5 lines. Do not invent new work beyond the open loops.
+4. Slack the founder ONLY on a meaningful change: if you pushed a PR, closed a loop, or a maintainer newly replied, run `bash q-system/.q-system/scripts/slack-notify.sh "<one concise line>"`. If nothing changed (loops still just waiting on a maintainer), stay SILENT -- do not Slack.
+5. Report what you did in 3-5 lines. Do not invent new work beyond the open loops.
 PROMPT_EOF
 
 echo "$(TS) heartbeat: $COUNT open loop(s) -> waking headless agent" >> "$LOG"
