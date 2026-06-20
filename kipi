@@ -8,6 +8,7 @@ usage() {
   echo ""
   echo "  kipi update          Pull latest skeleton into all projects"
   echo "  kipi update --dry    Show what would happen without changing anything"
+  echo "  kipi rollback [name]  Revert the last skeleton sync (all instances, or one by name)"
   echo "  kipi new <path> <name>   Create a new project with the skeleton"
   echo "  kipi push            Push generic improvements back to skeleton (run from a project)"
   echo "  kipi dev             Launch Claude Code with all kipi plugins loaded"
@@ -29,6 +30,10 @@ case "${1:-help}" in
     else
       bash "$KIPI_HOME/kipi-update.sh"
     fi
+    ;;
+  rollback)
+    shift || true
+    bash "$KIPI_HOME/kipi-rollback.sh" "$@"
     ;;
   new)
     shift

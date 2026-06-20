@@ -153,6 +153,8 @@ WARN_RULES = frozenset({
     "no-single-sentence-paragraph",
     "bold-restatement",
     "missing-contraction",
+    "emphasis-opener",
+    "rhetorical-qa",
 })
 
 
@@ -498,6 +500,81 @@ def check_bold_restatement(text):
     return violations
 
 
+EMPHASIS_OPENERS = {"importantly", "notably", "crucially", "significantly"}
+
+RHETORICAL_ANSWER_LEAD_RE = re.compile(
+    r"^(because|so|yes|no|simple|the answer|that's|it's|here's|turns out|nope|exactly|none|short answer)\b",
+    re.IGNORECASE,
+)
+# Real reader-directed questions are NOT rhetorical setups; do not flag them.
+READER_DIRECTED_Q_RE = re.compile(
+    r"\b(what do you|how do you|have you|did you|can you|would you|are you|do you)\b",
+    re.IGNORECASE,
+)
+
+
+def check_emphasis_opener(text):
+    """Sentence-initial emphasis openers ('Importantly,'/'Notably,'/...). AI cadence
+    tell. WARN-class: anchored to sentence start + trailing comma so 'runs significantly
+    faster' (mid-sentence) does not flag. (H8-remainder.)"""
+    violations = []
+    prose_text = strip_code_for_prose_check(text)
+    paragraphs = prose_text.split("\n\n")
+    cursor = 0
+    for para in paragraphs:
+        para_start = prose_text.find(para, cursor)
+        if para_start == -1:
+            para_start = cursor
+        cursor = para_start + len(para)
+        if para.lstrip().startswith("#"):
+            continue
+        for sentence in split_sentences(para):
+            m = re.match(r"([A-Za-z]+),", sentence)
+            if m and m.group(1).lower() in EMPHASIS_OPENERS:
+                line = find_line_number(text, para_start)
+                violations.append({
+                    "rule": "emphasis-opener",
+                    "line": line,
+                    "detail": f"sentence-initial emphasis opener: '{m.group(1)},' (AI cadence tell; rephrase or drop)",
+                })
+    return violations
+
+
+def check_rhetorical_qa(text):
+    """Short rhetorical question answered by the next short/connector-led sentence
+    ('The result? A cleaner pipeline.'). AI cadence tell. WARN-class: suppresses real
+    reader-directed questions and #-headings to bound false positives. (H9.)"""
+    violations = []
+    prose_text = strip_code_for_prose_check(text)
+    paragraphs = prose_text.split("\n\n")
+    cursor = 0
+    for para in paragraphs:
+        para_start = prose_text.find(para, cursor)
+        if para_start == -1:
+            para_start = cursor
+        cursor = para_start + len(para)
+        if para.lstrip().startswith("#"):
+            continue
+        sentences = split_sentences(para)
+        for i in range(len(sentences) - 1):
+            q = sentences[i].strip()
+            a = sentences[i + 1].strip()
+            if not q.endswith("?"):
+                continue
+            if word_count(q) > 9:
+                continue
+            if READER_DIRECTED_Q_RE.search(q):
+                continue
+            if word_count(a) <= 8 or RHETORICAL_ANSWER_LEAD_RE.match(a):
+                line = find_line_number(text, para_start)
+                violations.append({
+                    "rule": "rhetorical-qa",
+                    "line": line,
+                    "detail": f"rhetorical question answered by the next sentence: '{q[:40]}' -> '{a[:40]}' (AI cadence tell)",
+                })
+    return violations
+
+
 def lint_file(file_path):
     try:
         text = Path(file_path).read_text(encoding="utf-8")
@@ -521,6 +598,8 @@ def lint_file(file_path):
     all_violations.extend(check_hedge_density(text))
     all_violations.extend(check_single_sentence_paragraph(text))
     all_violations.extend(check_bold_restatement(text))
+    all_violations.extend(check_emphasis_opener(text))
+    all_violations.extend(check_rhetorical_qa(text))
     return all_violations
 
 

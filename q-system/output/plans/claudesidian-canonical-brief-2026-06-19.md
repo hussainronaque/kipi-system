@@ -244,3 +244,33 @@ What kipi already uses (confirmed): `q-system/.obsidian-starter/` (committed con
 CORRECTED (direct recon 2026-06-19): `/Users/assafkip` is a root-owned SYMLINK to `/Users/assafkipnis` (same inode confirmed on 4_points_consulting and kipi-system; same git HEAD). There are NO duplicate on-disk trees, and every registry path already resolves through the symlink. The earlier "duplicate physical copies / fix-first blocker / lesson written to a tree nobody is watching" claim was an AGENT OVERSTATEMENT (the second this session, after "zero update safety net" on H2). Lesson for the harvest method: an agent reporting "two paths both exist" is not evidence of duplication until someone checks the inode / symlink. Ground before you diagnose.
 
 The real issue is minor and non-destructive: 14 instance entries + the skeleton + the standalone use the symlink alias, so they break ONLY if that root-owned symlink is ever removed; and 4 Desktop entries (VC_Reachout already marked merged, car-research, q-education, q-investigate-osint-bot) point at dirs gone from disk. **[Admin, ~20m, LOW priority]** This is hygiene that hardens against a symlink removal, NOT a blocker for H0. H0 (cross-instance learning) can proceed independently.
+
+
+---
+
+# 5. Execution closure (2026-06-20)
+
+Every H-item is now at a closed status (brief rule 3). Shipped via prd-os + fable-discipline across this session's goal chain; each issue agent-reviewed with the finding fixed and a reproducer test green.
+
+| ID | Status | Where |
+|----|--------|-------|
+| H0 | ADOPTED | Goal 1 -- cross-instance lessons corpus (commits 609dd6e, 5cb30cd) |
+| H1 | ADOPTED | Goal 2 -- skill-trigger-eval.py + 4 fixtures (1268aeb) |
+| H2 | ADOPTED | Goal 2 -- kipi-update untracked-file snapshot/restore (1268aeb) |
+| H3 | ADOPTED | prd-claudesidian-finish -- kipi rollback verb (ef3cce9) |
+| H4 | ADOPTED | Goal 2 -- real rsync --dry diff (1268aeb) |
+| H5 | ADOPTED | Goal 2 + Goal 3 -- version-skew nudge, fires on dirty trees (1268aeb, 1d60429) |
+| H6 | DEFERRED | Resumable manifest. Fleet of 18 is local/fast/idempotent; verifier graded marginal -- revisit at ~50 instances or if direct-clones dominate. |
+| H7 | ADOPTED | Goal 2 -- firecrawl-scrape.py, fail-closed, wired into research-mode (1268aeb) |
+| H8 | ADOPTED | Goal 2 (worth-mentioning BLOCK) + prd-claudesidian-finish (emphasis-opener WARN) |
+| H9 | ADOPTED | prd-claudesidian-finish -- rhetorical-qa WARN detector |
+| H10 | ADOPTED | Goal 2 -- voice-substance anchor >=2 (1268aeb) |
+| H11 | DEFERRED | Skill-discovery hook. kipi's semantic *-auto-invoke rules already beat a literal-"skill" trigger; verifier graded marginal/no. |
+| H12 | DEFERRED | Benchmark delta. Already dropped in the Goal-2 brief; expensive (40 nested Opus calls), non-deterministic scoring; verifier graded no. |
+| H13 | ADOPTED | Goal 2 -- trigger-eval pairing + wiring-check bullet (1268aeb) |
+| H14 | PENDING (cross-repo) | Obsidian Bases exporter -- lands in kipi-investigations (separate repo + .prd-os). Verified absent (investigations/export/ has obsidian.py + canvas.py, no bases.py). Needs explicit founder OK before any edit there. |
+| H15 | PENDING (cross-repo) | Obsidian callouts for threat/confidence tiers -- same kipi-investigations repo, same founder-OK gate. |
+
+**Deferred-item provenance:** H6/H11/H12 deferrals were set by the agent during prd-os triage, grounded in a 7-agent verification pass that read the real files. They are documented here, not silently cut. Un-defer any by saying so.
+
+**Cross-repo gate:** H14/H15 are the only remaining harvest items, and both require founder sign-off to touch kipi-investigations (cross-instance-preflight rule). Not started.

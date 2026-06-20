@@ -118,3 +118,22 @@ Some instances (like car-research) are direct clones of kipi-system rather than 
 cd /path/to/my-instance
 git subtree pull --prefix=q-system https://github.com/assafkip/kipi-system.git main --squash
 ```
+
+## Rolling Back a Sync
+
+If a `kipi update` propagated a bad skeleton change, revert the last sync:
+
+```bash
+kipi rollback             # revert the last sync commit in every registered instance
+kipi rollback my-instance # scope to one instance by name
+```
+
+The rollback script:
+- Finds the sync commit by message (`chore: sync q-system from skeleton ...`), not by HEAD, so it reverts the right commit even when a later content commit sits on top.
+- Uses `git revert` (non-destructive). It never hard-resets, and your `chore: auto-commit before kipi update` snapshot stays intact.
+- Skips any instance with a dirty working tree (commit or stash first) and any instance with no sync commit.
+- On a revert conflict it aborts cleanly and reports the instance as failed, leaving it untouched, so you can resolve by hand.
+
+Instance state in `my-project/`, `canonical/`, `memory/`, and `output/` is never touched by a rollback because those dirs are excluded from the sync in the first place.
+
+Direct-clone instances (those with `type: direct-clone` in the registry, like car-research) update via `git pull` and carry no local `chore: sync q-system from skeleton` commit, so `kipi rollback` skips them with a note. Roll those back with `git` inside the instance (e.g. `git reset` to the pre-pull ref or `git revert` the pulled range).
