@@ -152,6 +152,14 @@
       "instance_q_dir": null,
       "type": "subtree",
       "has_git": true
+    },
+    {
+      "name": "travel-agent",
+      "path": "/Users/assafkipnis/projects/travel-agent",
+      "subtree_prefix": "q-system",
+      "instance_q_dir": null,
+      "type": "subtree",
+      "has_git": true
     }
   ],
   "standalone": [
