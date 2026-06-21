@@ -13,8 +13,11 @@ What it does:
   3. Strip markdown so punctuation is not read aloud.
   4. Chunk to <=4000 chars (OpenAI hard limit is 4096/request) and synthesize
      each chunk via POST https://api.openai.com/v1/audio/speech.
-  5. Concatenate the mp3 bytes and play detached in the background (afplay), so
-     the Claude turn returns immediately and audio keeps playing.
+  5. Write the mp3 to a STABLE path and print the play command. It does NOT
+     auto-play: the founder runs the player themselves so they get a keyboard
+     for speed/seek/pause controls (a detached player can take no key presses).
+     Same stable file is what makes over-SSH playback work — pull it to the
+     laptop and play there. (2026-06-21: controls + ssh are one design.)
 
 API key: read from $OPENAI_API_KEY, else ~/.config/kipi/openai-key. No key is a
 clean one-line error, not a traceback.
@@ -22,10 +25,10 @@ clean one-line error, not a traceback.
 Flags:
   --dry-run       Print the extracted, markdown-stripped text. No API call.
   --dump-chunks   Print chunk count and sizes. No API call. (length-handling proof)
-  --no-play       Synthesize and write the mp3, but do not play it.
-  stop            Stop background playback (kills the tracked afplay process).
+  --no-play       Alias for the default now (synthesize + write file, no play).
+  stop            Clear any stray playback (afplay/mpv).
 
-Stdlib only (urllib for HTTP). macOS playback via afplay.
+Stdlib only (urllib for HTTP). Playback is the founder's own mpv/ffplay run.
 
 Exit codes: 0 = ok, 1 = user-facing error (no key, no transcript, API failure).
 """
@@ -33,10 +36,10 @@ Exit codes: 0 = ok, 1 = user-facing error (no key, no transcript, API failure).
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
-import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -44,6 +47,12 @@ from pathlib import Path
 CONFIG_DIR = Path.home() / ".config" / "kipi"
 KEY_FILE = CONFIG_DIR / "openai-key"
 PID_FILE = CONFIG_DIR / ".say-playing.pid"
+# Stable output path (NOT a random tempfile). The founder plays this file
+# themselves in their own terminal so they get a keyboard for speed/seek/pause
+# controls — a player Claude launches detached can never take key presses. The
+# stable path is also what makes over-SSH playback work: pull THIS file to the
+# laptop and play it there. (2026-06-21: controls + ssh are one design.)
+SAY_MP3 = CONFIG_DIR / "say-last.mp3"
 
 TTS_URL = "https://api.openai.com/v1/audio/speech"
 DEFAULT_MODEL = os.environ.get("KIPI_TTS_MODEL", "gpt-4o-mini-tts")
@@ -202,20 +211,48 @@ def synthesize(chunks, api_key, model, voice):
     return bytes(audio)
 
 
-def play_background(mp3_path):
-    """Play the mp3 detached so it survives the turn; record its PID."""
-    process = subprocess.Popen(
-        ["afplay", str(mp3_path)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    PID_FILE.write_text(str(process.pid), encoding="utf-8")
+def ssh_server_ip():
+    """Server IP the client SSH'd into, or None if not an SSH session.
+
+    SSH_CONNECTION is "client_ip client_port server_ip server_port"; the
+    laptop reaches THIS host (the mini) at server_ip to pull the audio.
+    """
+    parts = os.environ.get("SSH_CONNECTION", "").split()
+    return parts[2] if len(parts) >= 3 else None
+
+
+def play_instructions(minutes):
+    """Build the copy-paste play commands (Option 1: founder launches player).
+
+    No auto-play. The founder runs the player themselves so they get a keyboard
+    for the speed/seek/pause controls. mpv is the only common player that does
+    all three; ffplay is offered as a no-speed fallback if mpv is missing.
+    """
+    lines = [f"say: ready (~{minutes} min) at {SAY_MP3}"]
+    if shutil.which("mpv"):
+        lines.append(f"  play: mpv {SAY_MP3}")
+    else:
+        lines.append(f"  for controls: brew install mpv  ->  mpv {SAY_MP3}")
+        if shutil.which("ffplay"):
+            lines.append(
+                f"  or now (seek+pause, no speed): "
+                f"ffplay -nodisp -autoexit {SAY_MP3}"
+            )
+    server = ssh_server_ip()
+    if server:
+        lines.append(
+            f"  laptop audio over ssh: ssh {server} 'cat {SAY_MP3}' | mpv -"
+        )
+    lines.append("  keys: [ ] speed | <-/-> seek 5s | up/down 60s | space pause | q quit")
+    return "\n".join(lines)
 
 
 def stop_playback():
-    """Stop tracked background playback. Returns a one-line status string."""
+    """Clear any stray playback. Returns a one-line status string.
+
+    Option 1 has no detached player (the founder runs mpv/ffplay in their own
+    terminal and quits with q), so this is a best-effort cleanup of leftovers.
+    """
     pid = None
     if PID_FILE.is_file():
         try:
@@ -230,7 +267,8 @@ def stop_playback():
         except ProcessLookupError:
             pass
     subprocess.run(["pkill", "-x", "afplay"], check=False)
-    return "say: no tracked playback; cleared any afplay."
+    subprocess.run(["pkill", "-x", "mpv"], check=False)
+    return "say: cleared any afplay/mpv playback."
 
 
 def fail(message):
@@ -247,6 +285,12 @@ def load_text():
     if not prose.strip():
         fail("say: no prior assistant response found to read.")
     return strip_markdown(prose)
+
+
+def write_audio(audio):
+    """Write mp3 bytes to the stable path, overwriting the prior one."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    SAY_MP3.write_bytes(audio)
 
 
 def main():
@@ -283,18 +327,9 @@ def main():
     except urllib.error.URLError as error:
         fail(f"say: network error reaching OpenAI: {error.reason}")
 
-    fd, mp3_path = tempfile.mkstemp(prefix="say-", suffix=".mp3")
-    with os.fdopen(fd, "wb") as handle:
-        handle.write(audio)
-
-    if "--no-play" in args:
-        print(f"say: wrote {len(audio)} bytes to {mp3_path} (not played).")
-        return
-
-    play_background(mp3_path)
+    write_audio(audio)
     minutes = max(1, round(len(text) / 950))  # ~950 chars/min spoken
-    print(f"say: playing ~{minutes} min of audio ({len(chunks)} chunk(s)). "
-          "Run `/say stop` to stop.")
+    print(play_instructions(minutes))
 
 
 if __name__ == "__main__":
