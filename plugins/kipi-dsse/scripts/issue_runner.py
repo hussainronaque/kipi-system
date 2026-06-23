@@ -656,8 +656,15 @@ def _enforce_spine_contract(paths, fm: dict, marker: dict, issue_id: str) -> str
                     return (f"cannot close {issue_id}: deletes pattern "
                             f"{pattern!r} still present in {rel} — the old "
                             "path must be GONE, not shadowed.\n")
-    # the minimal yaml parser keeps surrounding quotes — strip them
-    bypass_check = (fm.get("bypass_check") or "").strip().strip("\"'")
+    # the minimal yaml parser keeps surrounding quotes — strip ONE balanced pair only.
+    # NOT .strip("\"'"): that greedily removes EVERY leading/trailing quote char, so a command
+    # ending in a legitimate quoted arg (e.g. `... -t 'claim-prose'`) lost its closing quote and
+    # registered an unterminated command that died with "syntax error: unexpected end of file"
+    # (sp gate-truncation, 2026-06-23). Strip only when the first and last chars are the SAME
+    # quote char — the actual YAML wrapper — leaving inner/trailing quotes intact.
+    bypass_check = (fm.get("bypass_check") or "").strip()
+    if len(bypass_check) >= 2 and bypass_check[0] == bypass_check[-1] and bypass_check[0] in "\"'":
+        bypass_check = bypass_check[1:-1]
     if bypass_check:
         try:
             sys.path.insert(0, str(paths.repo_root / "plugins" / "prd-os" / "scripts"))
