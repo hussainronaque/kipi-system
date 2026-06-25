@@ -44,7 +44,7 @@ REVIEW_CAP_DEFAULTS = {"standard": 2, "adversarial": 1}
 REVIEW_CAP_OVERRIDE_ENV = "ISSUE_ALLOW_REVIEW_REPEAT"
 
 CONFIG_RELPATH = ".prd-os/config.json"
-DEFAULT_ISSUES_DIR = "issues"
+DEFAULT_ISSUES_DIR = ".prd-os/issues"
 DEFAULT_FINDINGS_SUBDIR = "findings"
 DEFAULT_STATE_DIR = ".claude/state"
 DEFAULT_RECEIPTS_PATH = ".prd-os/receipts.jsonl"

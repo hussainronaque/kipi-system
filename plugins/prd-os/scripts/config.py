@@ -39,6 +39,7 @@ DEFAULTS = {
     "findings_dir": ".prd-os/findings",
     "state_dir": ".claude/state",
     "receipts_path": ".prd-os/receipts.jsonl",
+    "codebase_map_path": ".prd-os/codebase-map.json",
     "codex": {
         "base_ref": "origin/main",
         "review_mode": "background",
@@ -71,6 +72,7 @@ class Config:
     findings_dir: Path
     state_dir: Path
     receipts_path: Path
+    codebase_map_path: Path
     codex_base_ref: str
     codex_review_mode: str
     control_plane_files: tuple[str, ...]
@@ -84,6 +86,10 @@ class Config:
     @property
     def active_prd_state_path(self) -> Path:
         return self.state_dir / "active-prd.json"
+
+    @property
+    def codebase_map_md_path(self) -> Path:
+        return self.codebase_map_path.with_suffix(".md")
 
 
 def discover_repo_root(start: Optional[Path] = None) -> Path:
@@ -155,6 +161,10 @@ def load(repo_root: Optional[Path] = None, *, strict: bool = True) -> Config:
         findings_dir=_resolve(root, _require_str(data, "findings_dir", DEFAULTS["findings_dir"])),
         state_dir=_resolve(root, _require_str(data, "state_dir", DEFAULTS["state_dir"])),
         receipts_path=_resolve(root, _require_str(data, "receipts_path", DEFAULTS["receipts_path"])),
+        codebase_map_path=_resolve(
+            root,
+            _require_str(data, "codebase_map_path", DEFAULTS["codebase_map_path"]),
+        ),
         codex_base_ref=base_ref,
         codex_review_mode=review_mode,
         control_plane_files=tuple(cpf),
@@ -197,6 +207,7 @@ def default_config_payload() -> dict:
         "findings_dir": DEFAULTS["findings_dir"],
         "state_dir": DEFAULTS["state_dir"],
         "receipts_path": DEFAULTS["receipts_path"],
+        "codebase_map_path": DEFAULTS["codebase_map_path"],
         "codex": dict(DEFAULTS["codex"]),
         "control_plane_files": list(DEFAULTS["control_plane_files"]),
     }

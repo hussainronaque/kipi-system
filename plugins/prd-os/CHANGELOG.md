@@ -6,6 +6,34 @@ All notable changes to the `prd-os` plugin are recorded here. Format follows [Ke
 
 (next release goes here)
 
+## [0.5.0]
+
+### Added
+- **Cross-PRD findings advisory**: `findings_xref.py` surfaces prior
+  `rejected`/`deferred` findings from sibling PRDs that closely match a pending
+  finding (token-shingle Jaccard, deterministic, read-only, no LLM). Wired into
+  `/prd-triage` via `findings_writer.py advisory`, which swallows every xref
+  failure so it can never block triage. Threshold resolves flag > config
+  `xref_threshold` > 0.6, validated to a finite [0,1] value.
+- **`/prd-os-init`** (`prd_os_init.py`): one-time bootstrap that writes
+  `.prd-os/config.json` with defaults. Idempotent, non-destructive, validates
+  what it writes. The runners previously pointed at it but it did not exist.
+- **`/prd-map`** (`prd_map_runner.py` + `codebase_map.schema.json`): facts-only
+  codebase snapshot for grounding PRDs. `codebase_map_path` added to config.
+- **PRD template sections**: `Alternatives considered`, `Scenarios`, and
+  `Resolved decisions` give the cold-context reviewer the decision space.
+- **Review rubric**: a penalty-of-being-wrong lens for assigning severity
+  (alongside the existing dimensions, including Recurring gap classes).
+
+### Fixed
+- `kipi-dsse` `issue_runner.py` defaulted `issues_dir` to `issues` while
+  `config.py` used `.prd-os/issues`; a no-config repo wrote issue specs to one
+  path and the runner looked in another. Aligned to the canonical default.
+
+### Notes
+- All 0.4.0 capabilities preserved (spillover gate, persona/skeptic review,
+  gap-classes dimension). This release is purely additive.
+
 ## [0.4.0]
 
 ### Added

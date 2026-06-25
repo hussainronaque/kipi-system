@@ -17,8 +17,10 @@ import pytest
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 COMMANDS_DIR = PLUGIN_ROOT / "commands"
 SCRIPTS_DIR = PLUGIN_ROOT / "scripts"
+TEMPLATES_DIR = PLUGIN_ROOT / "templates"
 
 EXPECTED = {
+    "prd-os-init.md": ["prd_os_init.py"],
     "prd-start.md": ["prd_runner.py"],
     "prd-review.md": ["prd_runner.py", "findings_writer.py"],
     "prd-triage.md": ["prd_runner.py", "findings_writer.py"],
@@ -26,6 +28,7 @@ EXPECTED = {
     "prd-split.md": ["prd_split.py"],
     "prd-archive.md": ["prd_runner.py"],
     "prd-personas.md": ["prd_runner.py"],
+    "prd-map.md": ["prd_map_runner.py"],
 }
 
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
@@ -61,3 +64,25 @@ def test_no_unexpected_command_files():
     actual = {p.name for p in COMMANDS_DIR.glob("*.md")}
     extra = actual - set(EXPECTED)
     assert not extra, f"unexpected command files present: {sorted(extra)}"
+
+
+# --- PRD template / rubric section guards (prd-template-design-doc-sections) ---
+
+REQUIRED_TEMPLATE_HEADERS = [
+    "## Alternatives considered",
+    "## Scenarios",
+    "## Resolved decisions",
+]
+
+
+@pytest.mark.parametrize("header", REQUIRED_TEMPLATE_HEADERS)
+def test_prd_template_has_design_doc_headers(header):
+    text = (TEMPLATES_DIR / "prd.md").read_text()
+    assert header in text, f"prd.md template missing required section: {header}"
+
+
+def test_review_rubric_has_penalty_heuristic():
+    text = (TEMPLATES_DIR / "review-rubric.md").read_text().lower()
+    assert "penalty for being wrong" in text, (
+        "review-rubric.md missing the penalty-of-being-wrong severity heuristic"
+    )
