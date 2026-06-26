@@ -191,6 +191,75 @@ encoded as hooks and receipts. Worth a piece once the per-instance evidence land
 
 ---
 
+## Going public: the credibility playbook (researched 2026-06-26)
+
+Deep-research pass (106 agents, 24/25 claims survived 3-vote adversarial check).
+Scope: reach AI researchers/academics, win = durable credibility. Citations are
+verified primary sources unless flagged.
+
+### The core finding (built for this situation)
+The biggest credibility lever for an outsider is the thing already in hand:
+**receipts.** Soderberg, Errington & Nosek 2020 (*Royal Society Open Science*
+7(10):201520, survey of 3,759 researchers) found researchers rate openness /
+reproducibility cues (links to code/data, evidence of computational
+reproducibility) as MORE important to a preprint's credibility than author
+identity or peer-review signals. Cue type explained 10-19% of credibility
+variance; rater identity ~1%. The file-level receipts across six systems outweigh
+the absent PhD. This is the empirical backbone, not opinion.
+
+### The wall (structural, real)
+- **Recognition is rank-gated** — Merton 1968 (*Science* 159.3810), the "Matthew
+  effect": eminent names get disproportionate credit and visibility; unknowns are
+  under-credited for equivalent work.
+- **Can't network in** — Bourdieu-vs-Latour (*Social Epistemology* 30(3), 2016,
+  medium confidence, contested theory): credibility is field-specific; an outsider
+  must satisfy the field's internal criteria, not just know people.
+
+### The playbook (ranked, evidence-backed)
+1. **Write it up; put it on arXiv.** Preprint release ~+20.2% citations, the
+   largest open-science effect (arXiv:2404.16171, ~122k papers). arXiv-first is the
+   entry ticket.
+2. **Release the reproducible artifact (code + receipts).** ~+34% citations after
+   confound control across 2,439 systems papers (PMC9044204). This is the moat per
+   the Nosek finding.
+3. **Target NeurIPS 2026 Evaluations & Datasets Track.** Renamed; now explicitly
+   accepts reproducibility audits, benchmark-limitation analyses, and negative
+   results as standalone contributions ("need not introduce a new model"), mandates
+   code release, requires Responsible-AI metadata (NeurIPS 2026 CFP + official
+   blog). The governance-enforcement code + an audit framing fits exactly. Most
+   actionable venue found.
+4. **Embed in institutional design.** Raji, Xu, Honigsberg & Ho, "Outsider
+   Oversight" (AIES 2022, arXiv:2206.04737): "audits alone are unlikely to achieve
+   actual accountability; sustained focus on institutional design will be required."
+   Connect to a lab / collaborator / program for access + legitimacy.
+
+### Don't mistake reach for credibility
+- Social-media promotion buys attention, not citations: a Twitter/X RCT
+  (#TweetTheJournal) found no significant 1-year citation effect but a real
+  Altmetric bump. (Broader RCT literature is mixed.) Use X to distribute the arXiv
+  link; standing comes from artifact + venue.
+- An altmetric spike is not standing: 2025 systematic review (125 studies) found
+  Altmetric-citation R~0.16-0.19 vs Mendeley-readership-citation R~0.89.
+
+### Failure mode (from the literature)
+Most industry write-ups get ignored because they read as product marketing, not a
+falsifiable contribution with released, verifiable artifacts. Fix: frame as an
+audit/evaluation, lead with the receipts, stop selling.
+
+### Honest gaps in this pass
+Thin/silent on FAccT/AIES/HAI/GovAI/CSET specifics (only NeurIPS evidenced), the
+historical lab-memo tradition (Bell Labs/PARC/DEC SRC surfaced in search but no
+claim survived verification), and the named diffusion frameworks (Crane, Rogers,
+Granovetter — no verified claim). NeurIPS 2026 specifics are cycle-specific; verify
+the live CFP. A gap-fill pass is queued if a venue gets chosen.
+
+## Going to revenue: the consulting-leverage playbook (researching 2026-06-26)
+
+Second deep-research pass launched. Scope: reach buyers (ICP = AI-builder
+companies + security teams shipping unreliable AI), win = inbound consulting
+clients/revenue. How a credible technical body of work converts to pipeline.
+Findings land here when the run completes.
+
 ## Refinement log
 
 - 2026-06-26 — doc created; core-OS mapping done.
