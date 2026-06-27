@@ -253,12 +253,56 @@ claim survived verification), and the named diffusion frameworks (Crane, Rogers,
 Granovetter — no verified claim). NeurIPS 2026 specifics are cycle-specific; verify
 the live CFP. A gap-fill pass is queued if a venue gets chosen.
 
-## Going to revenue: the consulting-leverage playbook (researching 2026-06-26)
+## Going to revenue: the consulting-leverage playbook (PARTIAL — 2026-06-26)
 
-Second deep-research pass launched. Scope: reach buyers (ICP = AI-builder
-companies + security teams shipping unreliable AI), win = inbound consulting
-clients/revenue. How a credible technical body of work converts to pipeline.
-Findings land here when the run completes.
+Scope: reach buyers (ICP = AI-builder companies + security teams shipping
+unreliable AI), win = inbound consulting clients/revenue.
+
+**Run status: INCOMPLETE.** The deep-research pass hit a weekly usage limit
+partway through verification. Only 4 claims completed the 3-vote check; ~21
+extracted claims were left unverified (verifier agents abstained/failed on the
+limit, NOT refuted), and the synthesis/playbook step never ran. Re-run after the
+limit resets to finish. Treat everything below the line as a lead, not a fact.
+
+### Verified (3-0)
+- **Thought leadership buys RFP access:** 86% of B2B decision-makers are
+  moderately/very likely to invite a consistent thought-leadership producer into
+  an RFP (Edelman-LinkedIn B2B Thought Leadership Impact Report 2024).
+- **And pricing power:** 60% say they'll pay a premium to work with an org that
+  produces valuable thought leadership (same report).
+- **And net-new demand:** 75% say a specific piece of thought leadership led them
+  to research a product/service they weren't previously considering (same report).
+- **But info-overload shrinks deals:** 89% of B2B buyers encounter high-quality
+  information during purchase, and when they can't make sense of it they're
+  significantly more likely to settle for a smaller, less disruptive action than
+  planned (Gartner 2019).
+
+### Tentative read from the verified facts only
+Thought leadership demonstrably opens doors (RFP, premium, new demand). But the
+binding constraint is buyer overwhelm: more content makes buyers shrink the deal.
+So the edge is not MORE content, it's content that REDUCES the buyer's confusion
+and is verifiable. The six-system receipts + the AI-Index comparison are exactly
+the rare verifiable, sense-making asset that counters the overload failure mode.
+This is directionally supported but the playbook step that would rank the moves
+did not run.
+
+### Unverified leads (extracted, NOT yet checked — confirm on re-run)
+- LinkedIn-Edelman: 90% more receptive to outreach from consistent TL producers;
+  55% prioritize content grounded in verifiable facts/data; only 15% of TL rated
+  "very good." (If verified, this is the core argument FOR the receipts asset.)
+- Gartner "sense-making" sellers (help buyers reconcile conflicting info) report
+  ~80% high-quality/low-regret deals, beating "telling expertise."
+- Professional-services referral study: providers cannot reliably control client
+  referrals (challenges the "great work sells itself" assumption).
+- SME-blog credibility study (n=449, SEM-PLS): trustworthiness drives source
+  credibility, perceived EXPERTISE does not (H2 rejected, p=0.336) — counterintuitive.
+- Productization / value-pricing material (Baker, Enns "Win Without Pitching",
+  Dunford) was retrieved but is practitioner framework, not evidence, and unverified.
+
+### To finish
+Re-run the consulting pass after the weekly limit resets (7am PT) to verify the
+leads, fill angles 2-6 (productization, proof-asset funnels, ICP channels,
+category creation, ranked playbook), and run synthesis.
 
 ## Refinement log
 
