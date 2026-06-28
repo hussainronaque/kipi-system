@@ -181,6 +181,31 @@ def _parse_yaml_block(block: str) -> dict:
     return result
 
 
+def _decode_bypass_check(value: str) -> str:
+    """Turn a frontmatter bypass_check scalar into an sh-VALID shell command.
+
+    prd_split serializes bypass_check via json.dumps (prd_split.py), so the
+    stored value is a JSON flow scalar. Decode it SYMMETRICALLY with json.loads
+    so nested double quotes (\\") unescape into a real command. The old code
+    stripped ONE outer pair WITHOUT unescaping, leaving literal backslashes
+    that died with "syntax error near unexpected token" under /bin/sh whenever
+    a bypass_check used nested " (sp-8e9a12b8, 2026-06-28).
+
+    Single-quoted / bare values (hand-authored, or a command ending in a
+    legitimate 'quoted arg') are NOT JSON; strip one balanced single-quote pair
+    only, preserving inner/trailing quotes (sp gate-truncation, 2026-06-23).
+    """
+    value = (value or "").strip()
+    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value[1:-1]
+    if len(value) >= 2 and value[0] == value[-1] and value[0] == "'":
+        return value[1:-1]
+    return value
+
+
 def _load_spec(paths: Paths, issue_id: str) -> tuple[Path, dict, str]:
     candidates = [
         paths.issues_dir / f"{issue_id}.md",
@@ -723,15 +748,7 @@ def _enforce_spine_contract(paths, fm: dict, marker: dict, issue_id: str) -> str
                     return (f"cannot close {issue_id}: deletes pattern "
                             f"{pattern!r} still present in {rel} — the old "
                             "path must be GONE, not shadowed.\n")
-    # the minimal yaml parser keeps surrounding quotes — strip ONE balanced pair only.
-    # NOT .strip("\"'"): that greedily removes EVERY leading/trailing quote char, so a command
-    # ending in a legitimate quoted arg (e.g. `... -t 'claim-prose'`) lost its closing quote and
-    # registered an unterminated command that died with "syntax error: unexpected end of file"
-    # (sp gate-truncation, 2026-06-23). Strip only when the first and last chars are the SAME
-    # quote char — the actual YAML wrapper — leaving inner/trailing quotes intact.
-    bypass_check = (fm.get("bypass_check") or "").strip()
-    if len(bypass_check) >= 2 and bypass_check[0] == bypass_check[-1] and bypass_check[0] in "\"'":
-        bypass_check = bypass_check[1:-1]
+    bypass_check = _decode_bypass_check(fm.get("bypass_check") or "")
     if bypass_check:
         try:
             sys.path.insert(0, str(paths.repo_root / "plugins" / "prd-os" / "scripts"))
