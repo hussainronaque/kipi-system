@@ -1,30 +1,34 @@
 # ICP Platform Signals
 
-> Where to find ICP content on each platform. Auto-populated from onboarding. Tuned weekly through engagement data and /q-calibrate.
+> Job hunting context: ICP = recruiters, hiring managers, CTOs, co-founders posting open roles.
 
-## Instagram
-- **Hashtags:** <!-- niche compound tags only, e.g. #threatintelligence, #secopslife -->
-- **Creators:** <!-- @handle (reason they're relevant to ICP) -->
-- **Bio keywords:** <!-- terms in ICP bios, e.g. "CISO", "Head of Security" -->
-- **Engagement threshold:** 100 <!-- skip posts below this many likes -->
+## LinkedIn <!-- pin -->
+- **Hashtags recruiters/HMs post when hiring:**
+  `#hiring` `#nowhiring` `#remotejobs` `#techjobs` `#startupjobs` `#remotehiring`
+  `#backendengineer` `#softwareengineer` `#pythondeveloper` `#nodejsdeveloper`
+  `#fullstackdeveloper` `#devopsengineer` `#aiengineer` `#platformengineer`
+- **Bio keywords (who to find and engage):**
+  "technical recruiter", "engineering recruiter", "talent acquisition",
+  "head of engineering", "CTO", "co-founder", "engineering manager", "VP engineering"
+- **Engagement threshold:** 20 likes (startup posts get low engagement — don't filter too high)
 
-## TikTok
-- **Keywords:** <!-- search queries ICP would use, e.g. "threat intelligence tools" -->
-- **Hashtags:** <!-- niche tags, e.g. #cybersecurity, #blueTeam -->
-- **Creators:** <!-- @handle (reason) -->
-- **View threshold:** 1000 <!-- skip videos below this many views -->
+## Reddit <!-- pin -->
+- **Subreddits:** see lead-sources.md
+- **Keywords (scan post titles/bodies):**
+  "hiring junior", "hiring engineer", "remote backend", "looking for backend",
+  "we're hiring", "job posting", "entry level", "associate engineer",
+  "node.js", "python django", "remote engineer"
 
-## Reddit (reference - rotation config in lead-sources.md)
-- **Subreddits:** <!-- from lead-sources.md -->
-- **Keywords:** <!-- pain terms from ICP language fingerprint -->
-
-## LinkedIn (reference - rotation config in lead-sources.md)
-- **Search queries:** <!-- from market-intelligence.md -->
-- **Bio keywords:** <!-- from ICP titles -->
+## X / Twitter
+- **Accounts:** see lead-sources.md
+- **Keywords:** "hiring backend", "remote engineer", "junior developer", "we're hiring"
 
 ## Medium
-- **Tags:** <!-- kebab-case, e.g. detection-engineering, incident-response -->
-- **Authors:** <!-- @handle (reason) -->
+- **Tags:** engineering, backend-development, system-design, python, node-js, devops, mlops
+- **Authors:** engineering blogs from target companies (signals growth/hiring)
 
-## Cross-Platform Keywords
-<!-- Buyer-language terms used to filter content on ANY platform. Pulled from ICP Language Fingerprint. -->
+## Cross-Platform Keywords <!-- pin -->
+junior backend engineer, associate software engineer, entry level developer,
+remote backend, python developer junior, node.js junior, junior devops,
+junior AI engineer, junior ML engineer, platform engineer entry level,
+startup hiring, backend role remote, full stack junior
