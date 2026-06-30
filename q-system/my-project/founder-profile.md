@@ -5,7 +5,7 @@
 > This file is populated during first-run setup. The presence of {{SETUP_NEEDED}} triggers the setup wizard.
 
 ## Platform
-- **Environment:** (web / cli / desktop)
+- **Environment:** cli
 
 ## Archetype
 - **Type:** (gtm-founder / product-founder / content-creator / operator / minimal)
